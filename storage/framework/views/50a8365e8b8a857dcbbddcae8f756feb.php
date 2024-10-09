@@ -1,0 +1,1 @@
+<?php /**PATH C:\Users\phpar\Documents\GitHub\submission-platform\resources\views/welcome.blade.php ENDPATH**/ ?>
