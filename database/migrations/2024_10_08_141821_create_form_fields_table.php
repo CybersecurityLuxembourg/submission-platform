@@ -14,10 +14,11 @@ return new class extends Migration
         Schema::create('form_fields', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('form_id'); // Associated form
-            $table->string('label');
+            $table->string('label')->nullable();
             $table->string('type'); // Field type: text, textarea, select, etc.
             $table->text('options')->nullable(); // For fields like select, checkbox
             $table->boolean('required')->default(false);
+            $table->text('content')->nullable(); // Headers and description
             $table->integer('order')->default(0);
             $table->timestamps();
 

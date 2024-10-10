@@ -18,6 +18,7 @@
         @livewireStyles
     </head>
     <body class="font-sans antialiased">
+
         <x-banner />
         @if (session('success'))
             <div class="mb-4 text-green-600">
@@ -25,7 +26,7 @@
             </div>
         @endif
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-
+            @include('layouts.navigation')
 
             <!-- Page Heading -->
             @if (isset($header))
@@ -44,6 +45,7 @@
 
         @stack('modals')
 
+        @livewireScripts
 
     </body>
 </html>
