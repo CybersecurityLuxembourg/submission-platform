@@ -19,6 +19,7 @@
 
     </head>
     <body class="font-sans antialiased">
+
         <?php if (isset($component)) { $__componentOriginalff9615640ecc9fe720b9f7641382872b = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalff9615640ecc9fe720b9f7641382872b = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.banner','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -46,7 +47,7 @@
             </div>
         <?php endif; ?>
         <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-
+            <?php echo $__env->make('layouts.navigation', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
 
             <!-- Page Heading -->
             <?php if(isset($header)): ?>
@@ -66,6 +67,8 @@
         </div>
 
         <?php echo $__env->yieldPushContent('modals'); ?>
+
+        <?php echo \Livewire\Mechanisms\FrontendAssets\FrontendAssets::scripts(); ?>
 
 
     </body>

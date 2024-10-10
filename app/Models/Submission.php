@@ -13,6 +13,7 @@ class Submission extends Model
 
     protected $fillable = [
         'form_id',
+        'user_id'
     ];
 
     /**
@@ -29,5 +30,10 @@ class Submission extends Model
     public function values(): HasMany
     {
         return $this->hasMany(SubmissionValues::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('index');
-});
+})->name('homepage');
 
 Route::middleware([
     'auth:sanctum',
@@ -37,11 +37,15 @@ Route::middleware([
 
     // Submissions Routes
     Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])->name('submissions.index');
+    Route::get('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'showSubmission'])->name('submissions.show');
 
+// User Submissions Route
+    Route::get('/my-submissions', [SubmissionController::class, 'showUserSubmission'])->name('submissions.user');
 
 // Public Form Submission Routes
     Route::get('/forms/{form}/submit', [SubmissionController::class, 'show'])->name('submissions.create');
     Route::post('/forms/{form}/submit', [SubmissionController::class, 'store'])->name('submissions.store');
     Route::get('/thank-you', [SubmissionController::class, 'thankyou'])->name('submissions.thankyou');
+
 
 });

@@ -4,48 +4,81 @@
             My Forms
         </h2>
     </x-slot>
-    <div class="flex justify-between items-center mb-6">
-        <a href="{{ route('forms.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded">Create New Form</a>
-    </div>
 
-    <div class="bg-white shadow rounded-lg p-6">
-        @if($forms->isEmpty())
-            <p>You have not created any forms yet.</p>
-        @else
-            <table class="min-w-full">
-                <thead>
-                <tr>
-                    <th class="text-left py-2">Title</th>
-                    <th class="text-left py-2">Status</th>
-                    <th class="text-left py-2">Created At</th>
-                    <th class="text-left py-2">Actions</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach($forms as $form)
-                    <tr>
-                        <td class="py-2">{{ $form->title }}</td>
-                        <td class="py-2 capitalize">{{ $form->status }}</td>
-                        <td class="py-2">{{ $form->created_at->format('M d, Y') }}</td>
-                        <td class="py-2">
-                            <a href="{{ route('forms.edit', $form) }}" class="text-blue-600">Edit</a>
-                            |
-                            <a href="{{ route('submissions.index', $form) }}" class="text-green-600">Submissions</a>
-                            |
-                            <form action="{{ route('forms.destroy', $form) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-red-600">Delete</button>
-                            </form>
-                            @if($form->status === 'published')
-                                |
-                                <a href="{{ route('forms.preview', $form) }}" class="text-indigo-600">Preview</a>
-                            @endif
-                        </td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
-        @endif
+    <!-- Container -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+
+        <!-- Create New Form Button -->
+        <div class="flex justify-between items-center mb-6">
+            <a href="{{ route('forms.create') }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition duration-200">
+                Create New Form
+            </a>
+        </div>
+
+        <!-- Content -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            @if($forms->isEmpty())
+                <p class="text-gray-600 dark:text-gray-300">You have not created any forms yet.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
+                                Title
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
+                                Created At
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($forms as $form)
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                                    {{ $form->title }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 capitalize">
+                                    {{ $form->status }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                                    {{ $form->created_at->format('M d, Y') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <a href="{{ route('forms.edit', $form) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                        Edit
+                                    </a>
+                                    <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                    <a href="{{ route('submissions.index', $form) }}" class="text-green-600 dark:text-green-400 hover:underline">
+                                        Submissions
+                                    </a>
+                                    <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                    <form action="{{ route('forms.destroy', $form) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">
+                                            Delete
+                                        </button>
+                                    </form>
+                                    @if($form->status === 'published')
+                                        <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                        <a href="{{ route('forms.preview', $form) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                            Preview
+                                        </a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
     </div>
 </x-app-layout>

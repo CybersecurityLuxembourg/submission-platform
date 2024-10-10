@@ -37,12 +37,32 @@ class FormController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'title' => 'required|max:255',
-            'description' => 'nullable',
+        $validatedData = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'categories' => 'required|array|min:1',
+            'categories.*.name' => 'required|string|max:255',
+            'categories.*.description' => 'nullable|string',
+            'categories.*.percentage_start' => 'required|integer|min:0|max:100',
+            'categories.*.percentage_end' => 'required|integer|min:0|max:100|gt:categories.*.percentage_start',
         ]);
 
-        $form = Auth::user()->forms()->create($request->only('title', 'description'));
+        $form = Form::create([
+            'title' => $validatedData['title'],
+            'description' => $validatedData['description'],
+            'status' => 'draft', // You might want to add a status field to your form creation page
+            'user_id' => auth()->id(),
+        ]);
+
+        foreach ($validatedData['categories'] as $index => $categoryData) {
+            $form->categories()->create([
+                'name' => $categoryData['name'],
+                'description' => $categoryData['description'],
+                'percentage_start' => $categoryData['percentage_start'],
+                'percentage_end' => $categoryData['percentage_end'],
+                'order' => $index + 1,
+            ]);
+        }
 
         return redirect()->route('forms.edit', $form)->with('success', 'Form created successfully.');
     }

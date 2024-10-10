@@ -41,4 +41,9 @@ class Form extends Model
     {
         return $this->hasMany(Submission::class);
     }
+
+    public function categories(): HasMany
+    {
+        return $this->hasMany(FormCategory::class);
+    }
 }
