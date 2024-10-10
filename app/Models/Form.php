@@ -46,4 +46,15 @@ class Form extends Model
     {
         return $this->hasMany(FormCategory::class);
     }
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function appointedUsers()
+    {
+        return $this->belongsToMany(User::class)
+            ->withPivot('can_edit')
+            ->withTimestamps();
+    }
 }
