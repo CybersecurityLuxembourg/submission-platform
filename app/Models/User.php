@@ -69,4 +69,16 @@ class User extends Authenticatable
     {
         return $this->hasMany(Form::class);
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function appointedForms()
+    {
+        return $this->belongsToMany(Form::class)
+            ->withPivot('can_edit')
+            ->withTimestamps();
+    }
 }

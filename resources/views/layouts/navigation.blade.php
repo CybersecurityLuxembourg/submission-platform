@@ -17,10 +17,14 @@
                     </x-nav-link>
 
                 </div>
-
+                <div class="hidden space-x-8 lg:flex">
+                    <x-nav-link :href="route('forms.index')" :active="request()->routeIs('forms.index')">
+                        {{ __('Available Forms') }}
+                    </x-nav-link>
+                </div>
                 @if(Auth::check())
                     <div class="hidden space-x-8 lg:flex">
-                        <x-nav-link :href="route('forms.index')" :active="request()->routeIs('forms.index')">
+                        <x-nav-link :href="route('forms.userIndex')" :active="request()->routeIs('forms.userIndex')">
                             {{ __('My forms') }}
                         </x-nav-link>
                     </div>

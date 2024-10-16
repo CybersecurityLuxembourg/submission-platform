@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
@@ -15,28 +16,28 @@ class FormController extends Controller
 {
     use AuthorizesRequests;
 
-    /**
-     * Display a listing of the user's forms.
-     */
-    public function index(): View|Factory|Application
+    public function userIndex(): View|Factory|Application
     {
         $forms = Auth::user()->forms()->latest()->get();
         return view('forms.index', compact('forms'));
     }
 
     /**
-     * Show the form for creating a new form.
+     * @throws AuthorizationException
      */
     public function create(): View|Factory|Application
     {
+        $this->authorize('create', Form::class);
         return view('forms.create');
     }
 
     /**
-     * Store a newly created form in storage.
+     * @throws AuthorizationException
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', Form::class);
+
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -50,7 +51,7 @@ class FormController extends Controller
         $form = Form::create([
             'title' => $validatedData['title'],
             'description' => $validatedData['description'],
-            'status' => 'draft', // You might want to add a status field to your form creation page
+            'status' => 'draft',
             'user_id' => auth()->id(),
         ]);
 
@@ -68,21 +69,20 @@ class FormController extends Controller
     }
 
     /**
-     * Show the form for editing the specified form.
+     * @throws AuthorizationException
      */
     public function edit(Form $form): View|Factory|Application
     {
-       # $this->authorize('update', $form);
-
+        $this->authorize('update', $form);
         return view('forms.edit', compact('form'));
     }
 
     /**
-     * Update the specified form in storage.
+     * @throws AuthorizationException
      */
     public function update(Request $request, Form $form): RedirectResponse
     {
-       # $this->authorize('update', $form);
+        $this->authorize('update', $form);
 
         $request->validate([
             'title' => 'required|max:255',
@@ -96,11 +96,11 @@ class FormController extends Controller
     }
 
     /**
-     * Remove the specified form from storage.
+     * @throws AuthorizationException
      */
     public function destroy(Form $form): RedirectResponse
     {
-      #  $this->authorize('delete', $form);
+        $this->authorize('delete', $form);
 
         $form->delete();
 
@@ -108,10 +108,11 @@ class FormController extends Controller
     }
 
     /**
-     * Preview the form as it would appear to applicants.
+     * @throws AuthorizationException
      */
     public function preview(Form $form): View|Factory|Application
     {
+        $this->authorize('view', $form);
         return view('forms.preview', compact('form'));
     }
 }

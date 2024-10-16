@@ -17,6 +17,8 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
+            $table->enum('visibility', ['public', 'authenticated', 'private'])->default('private');
+
             $table->timestamps();
 
             // Foreign key constraint
