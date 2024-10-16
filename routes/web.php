@@ -22,8 +22,8 @@ Route::middleware([
 
 // Form Routes
 
-    Route::get('/forms', [FormController::class, 'index'])->name('forms.index');
-    Route::get('/my-forms', [FormController::class, 'userIndex'])->name('forms.userIndex');
+    Route::get('/forms', [FormController::class, 'publicIndex'])->name('forms.public_index');
+    Route::get('/my-forms', [FormController::class, 'userIndex'])->name('forms.user_index');
     Route::get('/forms/create', [FormController::class, 'create'])->name('forms.create');
     Route::post('/forms', [FormController::class, 'store'])->name('forms.store');
     Route::get('/forms/{form}/edit', [FormController::class, 'edit'])->name('forms.edit');

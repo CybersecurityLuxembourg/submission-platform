@@ -15,11 +15,19 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class FormController extends Controller
 {
     use AuthorizesRequests;
+    public function publicIndex(Request $request): View|Factory|Application
+    {
+        $forms = Form::where('status', 'published')
+            ->whereIn('visibility', ['public', 'authenticated'])
+            ->latest()
+            ->paginate(10);
 
+        return view('forms.public-index', compact('forms'));
+    }
     public function userIndex(): View|Factory|Application
     {
         $forms = Auth::user()->forms()->latest()->get();
-        return view('forms.index', compact('forms'));
+        return view('forms.user-index', compact('forms'));
     }
 
     /**
@@ -41,6 +49,7 @@ class FormController extends Controller
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'visibility' => 'required|in:public,authenticated,private',
             'categories' => 'required|array|min:1',
             'categories.*.name' => 'required|string|max:255',
             'categories.*.description' => 'nullable|string',
@@ -51,6 +60,7 @@ class FormController extends Controller
         $form = Form::create([
             'title' => $validatedData['title'],
             'description' => $validatedData['description'],
+            'visibility' => $validatedData['visibility'],
             'status' => 'draft',
             'user_id' => auth()->id(),
         ]);
@@ -88,9 +98,10 @@ class FormController extends Controller
             'title' => 'required|max:255',
             'description' => 'nullable',
             'status' => 'required|in:draft,published,archived',
+            'visibility' => 'required|in:public,authenticated,private',
         ]);
 
-        $form->update($request->only('title', 'description', 'status'));
+        $form->update($request->only('title', 'description', 'status', 'visibility'));
 
         return redirect()->route('forms.index')->with('success', 'Form updated successfully.');
     }
@@ -113,6 +124,15 @@ class FormController extends Controller
     public function preview(Form $form): View|Factory|Application
     {
         $this->authorize('view', $form);
+
+        if ($form->visibility === 'authenticated' && !Auth::check()) {
+            abort(403, 'This form is only accessible to authenticated users.');
+        }
+
+        if ($form->visibility === 'private' && $form->user_id !== Auth::id()) {
+            abort(403, 'You do not have permission to view this form.');
+        }
+
         return view('forms.preview', compact('form'));
     }
 }
