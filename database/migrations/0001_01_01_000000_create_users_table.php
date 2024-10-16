@@ -21,7 +21,7 @@ return new class extends Migration
             $table->foreignId('current_team_id')->nullable();
             $table->string('profile_photo_path', 2048)->nullable();
             $table->timestamps();
-            $table->enum('role', ['admin', 'applicant', 'internal_evaluator', 'external_evaluator'])->default('applicant');
+            $table->enum('role', ['admin', 'user', 'internal_evaluator', 'external_evaluator'])->default('user');
 
         });
 
