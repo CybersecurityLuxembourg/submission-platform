@@ -58,7 +58,21 @@
                     <span class="text-red-600 dark:text-red-400 text-sm">{{ $message }}</span>
                     @enderror
                 </div>
-
+                <div class="mb-6">
+                    <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">
+                        Visibility
+                    </label>
+                    <select name="visibility"
+                            class="w-full mt-1 p-3 border border-gray-300 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-700
+                text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="public" {{ $form->visibility === 'public' ? 'selected' : '' }}>Public</option>
+                        <option value="authenticated" {{ $form->visibility === 'authenticated' ? 'selected' : '' }}>Authenticated Users Only</option>
+                        <option value="private" {{ $form->visibility === 'private' ? 'selected' : '' }}>Private</option>
+                    </select>
+                    @error('visibility')
+                    <span class="text-red-600 dark:text-red-400 text-sm">{{ $message }}</span>
+                    @enderror
+                </div>
                 <!-- Submit Button -->
                 <div class="flex justify-end">
                     <button type="submit"

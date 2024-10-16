@@ -30,6 +30,20 @@
                         <span class="text-red-600 text-sm">{{ $message }}</span>
                         @enderror
                     </div>
+                    <div class="mb-6">
+                        <label for="visibility" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Visibility</label>
+                        <select name="visibility" id="visibility"
+                                class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required>
+                            <option value="public">Public</option>
+                            <option value="authenticated">Authenticated Users Only</option>
+                            <option value="private" selected>Private</option>
+                        </select>
+                        @error('visibility')
+                        <span class="text-red-600 text-sm">{{ $message }}</span>
+                        @enderror
+                    </div>
+
 
                     <div class="mb-6">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Form Categories</h3>
