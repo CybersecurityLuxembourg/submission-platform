@@ -25,14 +25,12 @@ jobs:
           known_hosts: 'placeholder'
           if_key_exists: replace
 
-      - name: Add SSH known hosts
-        run: |
-          ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-          ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} "ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts"
+      - name: Adding known hosts on source host from bastion host
+        run: ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Test SSH connection through bastion
-        run: |
-          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "echo 'SSH connection successful'"
+      - name: Adding known hosts on source host from target host
+        run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
+
 
       - name: Sync Files to Server
         run: |
@@ -43,8 +41,6 @@ jobs:
             --exclude '.github' \
             --exclude 'tests' \
             ./build_artifacts.zip ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
-
-
 
       - name: Create Configuration Files and Deploy
         run: |
