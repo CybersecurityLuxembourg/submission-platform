@@ -1,3 +1,13 @@
+# Stage 1: Build assets with Node.js
+FROM node:20-alpine AS node-builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY resources/ ./resources/
+COPY vite.config.js ./
+RUN npm run build
+
+# Stage 2: Install PHP dependencies with Composer
 FROM composer:2 AS composer-builder
 WORKDIR /app
 COPY composer.json composer.lock ./
@@ -17,10 +27,13 @@ RUN apk update && apk add --no-cache \
     libxml2-dev \
     zip \
     unzip \
-    bash
+    bash \
+    icu-dev
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
+                                                                       docker-php-ext-configure intl && \
+                                                                       docker-php-ext-install intl
 
 # Configure opcache
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
