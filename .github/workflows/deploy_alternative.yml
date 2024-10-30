@@ -1,0 +1,77 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+          zip -r build_artifacts.zip public/build
+
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          known_hosts: 'placeholder'
+          if_key_exists: replace
+
+      - name: Add target host to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      # Test SSH connection with timeout
+      - name: Test SSH Connection
+        run: |
+          timeout 10s ssh -o ConnectTimeout=5 ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} echo "SSH connection successful" || exit 1
+
+      # Sync files using rsync for better control and resume capability
+      - name: Sync Files to Server
+        run: |
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'tests' \
+            . ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }}:/var/www/applications.nc3.lu/
+
+      - name: Create Configuration Files and Deploy
+        run: |
+          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} "bash -s" << 'ENDSSH'
+          cd /var/www/applications.nc3.lu
+
+          # Create .env file
+          cat > .env << 'EOL'
+          APP_NAME="NC3's Application Platform"
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=https://applications.nc3.lu
+          # ... rest of your env variables ...
+          EOL
+          chmod 600 .env
+
+          # Create docker-compose.env
+          cat > docker-compose.env << 'EOL'
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          EOL
+          chmod 600 docker-compose.env
+
+          # Extract build artifacts
+          unzip -o build_artifacts.zip -d public
+
+          # Run deployment script
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh
+          ENDSSH
