@@ -1,9 +1,8 @@
-# .github/workflows/deploy.yml
 name: Deploy to Production
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   deploy:
@@ -11,40 +10,54 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Deploy to Server
-        uses: appleboy/ssh-action@master
+      - name: Build Assets
+        run: |
+          npm ci
+          npm run build
+          zip -r build_artifacts.zip public/build
+
+      - name: Sync Files to Server
+        uses: appleboy/scp-action@v0.1.1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "."
+          target: "/var/www/applications.nc3.lu"
+          recursive: true
+          rm: true
+          exclude: |
+            .git/
+            node_modules/
+            vendor/
+            .env
+            docker-compose.env
+            build_artifacts.zip
+
+      - name: Upload Build Artifacts
+        uses: appleboy/scp-action@v0.1.1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_SSH_PORT }}
+          source: "build_artifacts.zip"
+          target: "/var/www/applications.nc3.lu/"
+
+      - name: Create .env File on Server
+        uses: appleboy/ssh-action@v0.1.1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_SSH_PORT }}
           script: |
-            # Ensure directory exists and set permissions
-            mkdir -p /var/www/applications.nc3.lu
-            cd /var/www/applications.nc3.lu
-
-            # If this is first deployment, initialize git
-            if [ ! -d .git ]; then
-              git init
-              git remote add origin ${{ github.server_url }}/${{ github.repository }}.git
-              git fetch
-            fi
-
-            # Update code
-            git fetch --all
-            git checkout -f master
-            git pull origin master
-
-
-
-            # Create production .env file
-            cat > .env << EOL
+            cat > /var/www/applications.nc3.lu/.env << EOL
             APP_NAME="NC3's Application Platform"
             APP_ENV=production
             APP_KEY=${{ secrets.APP_KEY }}
             APP_DEBUG=false
-            APP_TIMEZONE=UTC
             APP_URL=https://applications.nc3.lu
-
             APP_LOCALE=en
             APP_FALLBACK_LOCALE=en
             APP_FAKER_LOCALE=en_US
@@ -61,9 +74,9 @@ jobs:
             DB_CONNECTION=mysql
             DB_HOST=db
             DB_PORT=3306
-            DB_DATABASE=nc3_db
-            DB_USERNAME=nc3_user
-            DB_PASSWORD=nc3_password
+            DB_DATABASE=${{ secrets.DB_DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
             SESSION_DRIVER=database
             SESSION_LIFETIME=120
@@ -89,11 +102,31 @@ jobs:
 
             VITE_APP_NAME="NC3's Application Platform"
             EOL
+            chmod 600 /var/www/applications.nc3.lu/.env
 
-            cd submission_platform
-            # Start/update containers
-            docker-compose down # Ensure clean state
-            docker-compose up -d --build # Build and start everything
-
-            # Run deployment script
+      - name: Create Docker Compose .env File on Server
+        uses: appleboy/ssh-action@v0.1.1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cat > /var/www/applications.nc3.lu/docker-compose.env << EOL
+            DB_DATABASE=${{ secrets.DB_DATABASE }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            EOL
+            chmod 600 /var/www/applications.nc3.lu/docker-compose.env
+      - name: Run Deployment Script on Server
+        uses: appleboy/ssh-action@v0.1.1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_SSH_PORT }}
+          script: |
+            cd /var/www/applications.nc3.lu
+            unzip -o build_artifacts.zip -d public
+            chmod +x scripts/deploy.sh
             ./scripts/deploy.sh

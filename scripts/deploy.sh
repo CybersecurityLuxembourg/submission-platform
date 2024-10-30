@@ -6,15 +6,11 @@ echo "🚀 Starting deployment process..."
 # Install/update PHP dependencies
 docker-compose exec -T app composer install --optimize-autoloader --no-dev
 
-# Install Node dependencies and build assets
-docker-compose run --rm node npm ci
-docker-compose run --rm node npm run build
-
 # Clear and cache Laravel config
 docker-compose exec -T app php artisan config:clear
 docker-compose exec -T app php artisan config:cache
 
-# Run migrations (if any)
+# Run migrations
 docker-compose exec -T app php artisan migrate --force
 
 # Cache routes and views
@@ -24,27 +20,4 @@ docker-compose exec -T app php artisan view:cache
 # Optimize Laravel
 docker-compose exec -T app php artisan optimize
 
-# Restart containers to apply changes
-docker-compose up -d --build app
-
 echo "✅ Deployment completed successfully!"
-
-# 9. .gitignore (in root directory)
-/node_modules
-/public/build
-/public/hot
-/public/storage
-/storage/*.key
-/vendor
-.env
-.env.backup
-.env.production
-.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-auth.json
-npm-debug.log
-yarn-error.log
-/.fleet
-/.idea
-/.vscode
