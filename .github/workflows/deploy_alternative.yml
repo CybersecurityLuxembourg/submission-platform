@@ -11,41 +11,64 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+
       - name: Install dependencies and build
         run: |
           npm ci
           npm run build
           zip -r build_artifacts.zip public/build
 
-      - name: Install SSH key
+      - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key: ${{ secrets.PRODUCTION_ENV_SSH_PRIVATE_KEY }}
           known_hosts: 'placeholder'
           if_key_exists: replace
 
-      - name: Add target host to known hosts
+      - name: Configure SSH Setup
         run: |
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          # Add bastion host to known_hosts
+          ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
 
-      # Test SSH connection with timeout
+          # Add production host to known_hosts through bastion
+          ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} \
+            ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
+
+          # Create SSH config for easier connections
+          mkdir -p ~/.ssh
+          cat > ~/.ssh/config << EOF
+          Host bastion
+            HostName ${{ secrets.BASTION_HOST }}
+            User ${{ secrets.BASTION_USER }}
+            Port ${{ secrets.BASTION_SSH_PORT }}
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking yes
+
+          Host production
+            HostName ${{ secrets.PRODUCTION_ENV_HOST }}
+            User ${{ secrets.PRODUCTION_ENV_USER }}
+            ProxyCommand ssh -W %h:%p bastion
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
       - name: Test SSH Connection
         run: |
-          timeout 10s ssh -o ConnectTimeout=5 ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} echo "SSH connection successful" || exit 1
+          timeout 15s ssh -o ConnectTimeout=10 production "echo 'SSH connection successful'" || exit 1
 
-      # Sync files using rsync for better control and resume capability
       - name: Sync Files to Server
         run: |
           rsync -avz --delete \
+            -e "ssh -o ProxyCommand='ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} -W %h:%p'" \
             --exclude 'node_modules' \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'tests' \
-            . ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }}:/var/www/applications.nc3.lu/
+            . ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
 
       - name: Create Configuration Files and Deploy
         run: |
-          ssh ${{ secrets.SERVER_USERNAME }}@${{ secrets.SERVER_HOST }} "bash -s" << 'ENDSSH'
+          ssh production "bash -s" << 'ENDSSH'
           cd /var/www/applications.nc3.lu
 
           # Create .env file
@@ -55,11 +78,52 @@ jobs:
           APP_KEY=${{ secrets.APP_KEY }}
           APP_DEBUG=false
           APP_URL=https://applications.nc3.lu
-          # ... rest of your env variables ...
+          APP_LOCALE=en
+          APP_FALLBACK_LOCALE=en
+          APP_FAKER_LOCALE=en_US
+
+          APP_MAINTENANCE_DRIVER=file
+          BCRYPT_ROUNDS=12
+
+          LOG_CHANNEL=stack
+          LOG_STACK=single
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=debug
+
+          DB_CONNECTION=mysql
+          DB_HOST=db
+          DB_PORT=3306
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          SESSION_DRIVER=database
+          SESSION_LIFETIME=120
+          SESSION_ENCRYPT=false
+          SESSION_PATH=/
+          SESSION_DOMAIN=null
+
+          BROADCAST_CONNECTION=log
+          FILESYSTEM_DISK=local
+          QUEUE_CONNECTION=database
+
+          CACHE_STORE=database
+          CACHE_PREFIX=
+
+          MAIL_MAILER=log
+          MAIL_HOST=mail.mbox.lu
+          MAIL_PORT=2525
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_ENCRYPTION=null
+          MAIL_FROM_ADDRESS=app@nc3.lu
+          MAIL_FROM_NAME="NC3's Application Platform"
+
+          VITE_APP_NAME="NC3's Application Platform"
           EOL
           chmod 600 .env
 
-          # Create docker-compose.env
+          # Create docker-compose.env file
           cat > docker-compose.env << 'EOL'
           DB_DATABASE=${{ secrets.DB_DATABASE }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
@@ -68,10 +132,8 @@ jobs:
           EOL
           chmod 600 docker-compose.env
 
-          # Extract build artifacts
+          # Extract build artifacts and deploy
           unzip -o build_artifacts.zip -d public
-
-          # Run deployment script
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh
           ENDSSH
