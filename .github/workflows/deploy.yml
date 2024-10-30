@@ -46,6 +46,7 @@ jobs:
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
           cd /var/www/applications.nc3.lu
 
+
           # Create .env file
           cat > .env << 'EOL'
           APP_NAME="NC3's Application Platform"
@@ -56,6 +57,7 @@ jobs:
           APP_LOCALE=en
           APP_FALLBACK_LOCALE=en
           APP_FAKER_LOCALE=en_US
+          ASSET_URL=https://applications.nc3.lu
 
           APP_MAINTENANCE_DRIVER=file
           BCRYPT_ROUNDS=12
@@ -85,18 +87,18 @@ jobs:
           CACHE_STORE=database
           CACHE_PREFIX=
 
-          MAIL_MAILER=log
+          MAIL_MAILER=smtp
           MAIL_HOST=mail.mbox.lu
-          MAIL_PORT=2525
+          MAIL_PORT=465
           MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-          MAIL_ENCRYPTION=null
+          MAIL_ENCRYPTION=tls
           MAIL_FROM_ADDRESS=app@nc3.lu
           MAIL_FROM_NAME="NC3's Application Platform"
 
           VITE_APP_NAME="NC3's Application Platform"
           EOL
-          chmod 600 .env
+          chmod 644 .env
 
           # Create docker-compose.env file
           cat > docker-compose.env << 'EOL'
@@ -105,7 +107,7 @@ jobs:
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
           EOL
-          chmod 600 docker-compose.env
+          chmod 644 docker-compose.env
 
           # Extract build artifacts and deploy
           unzip -o build_artifacts.zip

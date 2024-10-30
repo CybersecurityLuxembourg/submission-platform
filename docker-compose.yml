@@ -1,61 +1,43 @@
 version: '3.8'
 
 services:
+    db:
+        image: mysql:8.0.33-debian
+        container_name: nc3_db
+        restart: unless-stopped
+        command: --default-authentication-plugin=mysql_native_password
+        env_file:
+            - docker-compose.env
+        environment:
+                MYSQL_DATABASE: ${DB_DATABASE}
+                MYSQL_USER: ${DB_USERNAME}
+                MYSQL_PASSWORD: ${DB_PASSWORD}
+                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+        volumes:
+            - dbdata:/var/lib/mysql
+            - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+        networks:
+            - app_network
     app:
         build:
             context: .
             dockerfile: Dockerfile
+            args:
+                HTTP_PROXY: http://proxy.lc1.conostix.com:3128
+                HTTPS_PROXY: http://proxy.lc1.conostix.com:3128
+                http_proxy: http://proxy.lc1.conostix.com:3128
+                https_proxy: http://proxy.lc1.conostix.com:3128
         container_name: nc3_app
-        restart: unless-stopped
-        env_file:
-            - docker-compose.env
-        environment:
-            DB_HOST: db
-        volumes:
-            - ./:/var/www/html
-        depends_on:
-            - db
-        networks:
-            - app_network
-
-    nginx:
-        image: nginx:stable-alpine
-        container_name: nc3_nginx
-        restart: unless-stopped
         ports:
-            - "80:80"
-        volumes:
-            - ./:/var/www/html
-            - ./docker/nginx/conf.d:/etc/nginx/conf.d
-        depends_on:
-            - app
-        networks:
-            - app_network
-
-    db:
-        image: mysql:8.0
-        container_name: nc3_db
+            - "127.0.0.1:9000:9000"
         restart: unless-stopped
         env_file:
             - docker-compose.env
-        volumes:
-            - dbdata:/var/lib/mysql
-        networks:
-            - app_network
-
-    backup:
-        build:
-            context: .
-            dockerfile: Dockerfile.backup
-        container_name: nc3_backup
         environment:
             DB_HOST: db
-            DB_DATABASE: ${DB_DATABASE}
-            DB_USERNAME: ${DB_USERNAME}
-            DB_PASSWORD: ${DB_PASSWORD}
         volumes:
-            - ./backups:/backups
-            - dbdata:/var/lib/mysql:ro
+            - storage_data:/var/www/html/storage
+            - ./public:/var/www/html/public
         depends_on:
             - db
         networks:
@@ -67,3 +49,4 @@ networks:
 
 volumes:
     dbdata:
+    storage_data:
