@@ -32,7 +32,7 @@ return [
 
         'local' => [
             'driver' => 'local',
-            'root' => storage_path('app/private'),
+            'root' => storage_path('app'),
             'serve' => true,
             'throw' => false,
         ],
@@ -42,6 +42,12 @@ return [
             'root' => storage_path('app/public'),
             'url' => env('APP_URL').'/storage',
             'visibility' => 'public',
+            'throw' => false,
+        ],
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'), // Store files in storage/app/private
+            'visibility' => 'private', // Ensure this is marked private
             'throw' => false,
         ],
 

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FormCategory extends Model
 {
-    protected $fillable = ['form_id', 'name', 'description', 'order', 'percentage_start', 'percentage_end'];
+    protected $fillable = ['form_id', 'name', 'description', 'order'];
 
     public function form(): BelongsTo
     {

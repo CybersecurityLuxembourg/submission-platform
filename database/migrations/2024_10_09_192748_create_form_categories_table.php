@@ -17,8 +17,6 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->integer('order');
-            $table->decimal('percentage_start', 5, 2);
-            $table->decimal('percentage_end', 5, 2);
             $table->timestamps();
         });
 

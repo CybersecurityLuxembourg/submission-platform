@@ -61,20 +61,6 @@
                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                               rows="2"></textarea>
                                 </div>
-                                <div class="flex space-x-4 mb-3">
-                                    <div class="flex-1">
-                                        <label :for="'category_percentage_start_'+index" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Start Percentage</label>
-                                        <input type="number" :name="'categories['+index+'][percentage_start]'" :id="'category_percentage_start_'+index" x-model="category.percentage_start"
-                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                               min="0" max="100" required>
-                                    </div>
-                                    <div class="flex-1">
-                                        <label :for="'category_percentage_end_'+index" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">End Percentage</label>
-                                        <input type="number" :name="'categories['+index+'][percentage_end]'" :id="'category_percentage_end_'+index" x-model="category.percentage_end"
-                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                               min="0" max="100" required>
-                                    </div>
-                                </div>
                                 <button type="button" @click="categories = categories.filter((_, i) => i !== index)"
                                         class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                                         x-show="categories.length > 1">

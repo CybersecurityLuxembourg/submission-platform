@@ -3,7 +3,10 @@
 namespace App\Providers;
 
 use App\Models\Form;
+use App\Models\FormAccessLink;
+use App\Models\Submission;
 use App\Policies\FormPolicy;
+use App\Policies\SubmissionPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 
@@ -16,6 +19,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         Form::class => FormPolicy::class,
+        FormAccessLink::class => FormPolicy::class,
+        Submission::class => SubmissionPolicy::class,
     ];
 
     /**

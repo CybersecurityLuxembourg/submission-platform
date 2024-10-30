@@ -42,7 +42,8 @@
                         <!-- Progress bar -->
                         <div class="mb-8">
                             <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
-                                <div class="bg-blue-600 h-2.5 rounded-full" x-bind:style="`width: ${percentageComplete}%`"></div>
+                                <div class="bg-blue-600 h-2.5 rounded-full"
+                                     x-bind:style="`width: ${percentageComplete}%`"></div>
                             </div>
                             <div class="text-sm text-gray-600 dark:text-gray-400">
                                 Progress: <span x-text="`${Math.round(percentageComplete)}%`"></span>
@@ -59,8 +60,13 @@
 
                                 <?php $__currentLoopData = $category->fields; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $field): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                     <div class="mb-6">
-                                        <?php if(!in_array($field->type, ['header', 'description'])): ?>
-                                            <label for="field_<?php echo e($field->id); ?>" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <?php if($field->type === 'header'): ?>
+                                            <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100 mt-4 mb-2"><?php echo e($field->content); ?></h4>
+                                        <?php elseif($field->type === 'description'): ?>
+                                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400"><?php echo e($field->content); ?></p>
+                                        <?php else: ?>
+                                            <label for="field_<?php echo e($field->id); ?>"
+                                                   class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 <?php echo e($field->label); ?>
 
                                                 <?php if($field->required): ?>
@@ -68,15 +74,34 @@
                                                 <?php endif; ?>
                                             </label>
                                         <?php endif; ?>
-
                                         <?php if($field->type === 'text'): ?>
-                                            <input type="text" name="field_<?php echo e($field->id); ?>" id="field_<?php echo e($field->id); ?>"
+                                            <input type="text"
+                                                   name="field_<?php echo e($field->id); ?>"
+                                                   id="field_<?php echo e($field->id); ?>"
                                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                <?php echo e($field->required ? 'required' : ''); ?>>
+                                                <?php echo e($field->required ? 'required' : ''); ?>
+
+                                                <?php echo e($field->char_limit ? 'maxlength='.$field->char_limit : ''); ?>>
+                                            <?php if($field->char_limit): ?>
+                                                <div class="mt-1 text-sm text-gray-500">
+                                                    Maximum characters: <?php echo e($field->char_limit); ?>
+
+                                                </div>
+                                            <?php endif; ?>
                                         <?php elseif($field->type === 'textarea'): ?>
-                                            <textarea name="field_<?php echo e($field->id); ?>" id="field_<?php echo e($field->id); ?>" rows="3"
+                                            <textarea name="field_<?php echo e($field->id); ?>"
+                                                      id="field_<?php echo e($field->id); ?>"
+                                                      rows="3"
                                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                <?php echo e($field->required ? 'required' : ''); ?>></textarea>
+              <?php echo e($field->required ? 'required' : ''); ?>
+
+                                                <?php echo e($field->char_limit ? 'maxlength='.$field->char_limit : ''); ?>></textarea>
+                                            <?php if($field->char_limit): ?>
+                                                <div class="mt-1 text-sm text-gray-500">
+                                                    Maximum characters: <?php echo e($field->char_limit); ?>
+
+                                                </div>
+                                            <?php endif; ?>
                                         <?php elseif($field->type === 'select'): ?>
                                             <select name="field_<?php echo e($field->id); ?>" id="field_<?php echo e($field->id); ?>"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -90,7 +115,8 @@
                                             <div class="mt-2 space-y-2">
                                                 <?php $__currentLoopData = explode(',', $field->options); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $option): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                                     <div class="flex items-center">
-                                                        <input type="<?php echo e($field->type); ?>" id="field_<?php echo e($field->id); ?>_<?php echo e($loop->index); ?>"
+                                                        <input type="<?php echo e($field->type); ?>"
+                                                               id="field_<?php echo e($field->id); ?>_<?php echo e($loop->index); ?>"
                                                                name="field_<?php echo e($field->id); ?><?php echo e($field->type === 'checkbox' ? '[]' : ''); ?>"
                                                                value="<?php echo e(trim($option)); ?>"
                                                                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600"

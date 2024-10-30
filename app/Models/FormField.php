@@ -11,7 +11,7 @@ class FormField extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['form_id', 'form_category_id', 'type', 'order', 'label', 'options', 'required', 'content',];
+    protected $fillable = ['form_id', 'form_category_id', 'type', 'order', 'label', 'options', 'required', 'content', 'char_limit'];
 
     /**
      * Get the form that owns the field.

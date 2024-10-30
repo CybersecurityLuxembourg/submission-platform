@@ -66,10 +66,10 @@
 if (session()->has($__sessionArgs[0])) :
 if (isset($value)) { $__sessionPrevious[] = $value; }
 $value = session()->get($__sessionArgs[0]); ?>
-            <div class="mb-4 font-medium text-sm text-green-600 dark:text-green-400">
-                <?php echo e($value); ?>
+        <div class="mb-4 font-medium text-sm text-green-600 dark:text-green-400">
+            <?php echo e($value); ?>
 
-            </div>
+        </div>
         <?php unset($value);
 if (isset($__sessionPrevious) && !empty($__sessionPrevious)) { $value = array_pop($__sessionPrevious); }
 if (isset($__sessionPrevious) && empty($__sessionPrevious)) { unset($__sessionPrevious); }
@@ -191,24 +191,36 @@ unset($__sessionArgs); ?>
                 </label>
             </div>
 
-            <div class="flex items-center justify-end mt-4">
-                <?php if(Route::has('password.request')): ?>
-                    <a class="underline text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800" href="<?php echo e(route('password.request')); ?>">
-                        <?php echo e(__('Forgot your password?')); ?>
+            <div class="flex flex-col space-y-2 sm:flex-row sm:items-center sm:justify-between mt-4">
+                <div class="flex flex-col space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                    <?php if(Route::has('password.request')): ?>
+                        <a class="underline hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800" href="<?php echo e(route('password.request')); ?>">
+                            <?php echo e(__('Forgot your password?')); ?>
 
-                    </a>
-                <?php endif; ?>
+                        </a>
+                    <?php endif; ?>
+                    <?php if(Route::has('register')): ?>
+                        <span>
+                            <?php echo e(__('No account yet?')); ?>
+
+                            <a class="underline hover:text-gray-900 dark:hover:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:focus:ring-offset-gray-800" href="<?php echo e(route('register')); ?>">
+                                <?php echo e(__('Register now')); ?>
+
+                            </a>
+                        </span>
+                    <?php endif; ?>
+                </div>
 
                 <?php if (isset($component)) { $__componentOriginald0f1fd2689e4bb7060122a5b91fe8561 = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginald0f1fd2689e4bb7060122a5b91fe8561 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['class' => 'ms-4']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.button','data' => ['class' => 'w-full justify-center sm:w-auto']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('button'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['class' => 'ms-4']); ?>
+<?php $component->withAttributes(['class' => 'w-full justify-center sm:w-auto']); ?>
                     <?php echo e(__('Log in')); ?>
 
                  <?php echo $__env->renderComponent(); ?>

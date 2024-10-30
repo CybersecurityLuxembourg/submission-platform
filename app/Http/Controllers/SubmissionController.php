@@ -4,23 +4,37 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\Submission;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SubmissionController extends Controller
 {
+    use AuthorizesRequests;
     public function show(Form $form): View|Factory|Application
     {
         if ($form->status !== 'published') {
             abort(404);
         }
 
-        $categories = $form->categories()->with('fields')->get();
-        return view('submissions.create', compact('form', 'categories'));
+
+        // Load the form with its categories and fields, properly ordered
+        $form->load([
+            'categories' => function ($query) {
+                $query->orderBy('order');
+            },
+            'categories.fields' => function ($query) {
+                $query->orderBy('order');
+            }
+        ]);
+
+        return view('submissions.create', compact('form'));
     }
 
     public function store(Request $request, Form $form): RedirectResponse
@@ -54,7 +68,7 @@ class SubmissionController extends Controller
         $validatedData = $request->validate($rules);
 
         $submission = $form->submissions()->create([
-            'user_id' => auth()->id() // This will be null for guest users
+            'user_id' => auth()->id(), // This will be null for guest users
         ]);
 
         foreach ($categories as $category) {
@@ -63,7 +77,7 @@ class SubmissionController extends Controller
 
                 if ($field->type === 'file' && $request->hasFile('field_' . $field->id)) {
                     $file = $request->file('field_' . $field->id);
-                    $path = $file->store('submissions/' . $submission->id, 'public');
+                    $path = $file->store('submissions/' . $submission->id, 'private'); // Store in private storage
                     $value = $path;
                 }
 
@@ -87,10 +101,11 @@ class SubmissionController extends Controller
 
     /**
      * Display a listing of submissions for a form.
+     * @throws AuthorizationException
      */
     public function index(Form $form): View|Factory|Application
     {
-       # $this->authorize('view', $form);
+        $this->authorize('view', $form);
 
         $submissions = $form->submissions()->latest()->get();
 
@@ -124,27 +139,19 @@ class SubmissionController extends Controller
         $submissionValues = $submission->values->keyBy('form_field_id');
 
         // Prepare categories with their fields and values
-        $categories = $form->categories->map(function ($category) use ($submissionValues) {
+        $categories = $form->categories->map(function ($category) use ($submissionValues, $submission) {
             // Map over the category's fields
-            $fields = $category->fields->map(function ($field) use ($submissionValues) {
+            $fields = $category->fields->map(function ($field) use ($submissionValues, $submission) {
                 $value = $submissionValues->get($field->id);
 
                 $displayValue = null;
                 if ($value) {
-                    switch ($field->type) {
-                        case 'file':
-                            $displayValue = $value->value ? Storage::url($value->value) : null;
-                            break;
-                        case 'checkbox':
-                            $displayValue = $value->value ? 'Yes' : 'No';
-                            break;
-                        case 'radio':
-                        case 'select':
-                            $displayValue = $value->value;
-                            break;
-                        default:
-                            $displayValue = $value->value;
-                    }
+                    $displayValue = match ($field->type) {
+                        'file' => $value->value ? route('submissions.download', ['submission' => $submission->id, 'filename' => basename($value->value)]) : null,
+                        'checkbox' => $value->value ? 'Yes' : 'No',
+                        'radio', 'select' => $value->value,
+                        default => $value->value,
+                    };
                 }
 
                 // Return an array with field data and displayValue
@@ -166,6 +173,7 @@ class SubmissionController extends Controller
         return view('submissions.show', compact('form', 'submission', 'categories'));
     }
 
+
     /**
      * Display a listing of submissions for the authenticated user.
      */
@@ -183,6 +191,23 @@ class SubmissionController extends Controller
             ->get();
 
         return view('submissions.user_index', compact('submissions'));
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    public function downloadFile(Submission $submission, $filename): StreamedResponse
+    {
+        $this->authorize('downloadFile', $submission);
+        $path = 'submissions/' . $submission->id . '/' . $filename;
+
+        // Check if the file exists in private storage
+        if (!Storage::disk('private')->exists($path)) {
+            abort(404, 'File not found.');
+        }
+
+        // Serve the file securely
+        return Storage::disk('private')->download($path);
     }
 
 }

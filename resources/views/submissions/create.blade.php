@@ -32,7 +32,8 @@
                         <!-- Progress bar -->
                         <div class="mb-8">
                             <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
-                                <div class="bg-blue-600 h-2.5 rounded-full" x-bind:style="`width: ${percentageComplete}%`"></div>
+                                <div class="bg-blue-600 h-2.5 rounded-full"
+                                     x-bind:style="`width: ${percentageComplete}%`"></div>
                             </div>
                             <div class="text-sm text-gray-600 dark:text-gray-400">
                                 Progress: <span x-text="`${Math.round(percentageComplete)}%`"></span>
@@ -49,23 +50,43 @@
 
                                 @foreach($category->fields as $field)
                                     <div class="mb-6">
-                                        @if(!in_array($field->type, ['header', 'description']))
-                                            <label for="field_{{ $field->id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        @if($field->type === 'header')
+                                            <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100 mt-4 mb-2">{{ $field->content }}</h4>
+                                        @elseif($field->type === 'description')
+                                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ $field->content }}</p>
+                                        @else
+                                            <label for="field_{{ $field->id }}"
+                                                   class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                                 {{ $field->label }}
                                                 @if($field->required)
                                                     <span class="text-red-500">*</span>
                                                 @endif
                                             </label>
                                         @endif
-
                                         @if($field->type === 'text')
-                                            <input type="text" name="field_{{ $field->id }}" id="field_{{ $field->id }}"
+                                            <input type="text"
+                                                   name="field_{{ $field->id }}"
+                                                   id="field_{{ $field->id }}"
                                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                {{ $field->required ? 'required' : '' }}>
+                                                {{ $field->required ? 'required' : '' }}
+                                                {{ $field->char_limit ? 'maxlength='.$field->char_limit : '' }}>
+                                            @if($field->char_limit)
+                                                <div class="mt-1 text-sm text-gray-500">
+                                                    Maximum characters: {{ $field->char_limit }}
+                                                </div>
+                                            @endif
                                         @elseif($field->type === 'textarea')
-                                            <textarea name="field_{{ $field->id }}" id="field_{{ $field->id }}" rows="3"
+                                            <textarea name="field_{{ $field->id }}"
+                                                      id="field_{{ $field->id }}"
+                                                      rows="3"
                                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                {{ $field->required ? 'required' : '' }}></textarea>
+              {{ $field->required ? 'required' : '' }}
+                                                {{ $field->char_limit ? 'maxlength='.$field->char_limit : '' }}></textarea>
+                                            @if($field->char_limit)
+                                                <div class="mt-1 text-sm text-gray-500">
+                                                    Maximum characters: {{ $field->char_limit }}
+                                                </div>
+                                            @endif
                                         @elseif($field->type === 'select')
                                             <select name="field_{{ $field->id }}" id="field_{{ $field->id }}"
                                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -79,7 +100,8 @@
                                             <div class="mt-2 space-y-2">
                                                 @foreach(explode(',', $field->options) as $option)
                                                     <div class="flex items-center">
-                                                        <input type="{{ $field->type }}" id="field_{{ $field->id }}_{{ $loop->index }}"
+                                                        <input type="{{ $field->type }}"
+                                                               id="field_{{ $field->id }}_{{ $loop->index }}"
                                                                name="field_{{ $field->id }}{{ $field->type === 'checkbox' ? '[]' : '' }}"
                                                                value="{{ trim($option) }}"
                                                                class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600"

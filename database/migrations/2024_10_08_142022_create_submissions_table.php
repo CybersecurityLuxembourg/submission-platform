@@ -13,8 +13,10 @@ return new class extends Migration {
     {
         Schema::create('submissions', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('form_id'); // Form being submitted to
-            $table->unsignedBigInteger('user_id'); // Form being submitted to
+            $table->unsignedBigInteger('form_id');
+            $table->unsignedBigInteger('user_id');
+            $table->enum('status', ['draft', 'submitted'])->default('draft');
+            $table->timestamp('last_edited_at')->nullable();
             $table->timestamps();
 
             // Foreign key constraint
