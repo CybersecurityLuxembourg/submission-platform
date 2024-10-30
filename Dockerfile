@@ -1,10 +1,18 @@
 # Stage 1: Build assets with Node.js
 FROM node:20-alpine AS node-builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+COPY package.json package-lock.json ./
+RUN set -eux; \
+    if [ ! -f package-lock.json ]; then \
+        echo "Error: package-lock.json is missing!" && exit 1; \
+    fi && \
+    npm ci --no-audit --no-progress && \
+    # Verify installation
+    npm ls || true
 COPY resources/ ./resources/
 COPY vite.config.js ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
 RUN npm run build
 
 # Stage 2: Install PHP dependencies with Composer
@@ -32,8 +40,8 @@ RUN apk update && apk add --no-cache \
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
-                                                                       docker-php-ext-configure intl && \
-                                                                       docker-php-ext-install intl
+    docker-php-ext-configure intl && \
+    docker-php-ext-install intl
 
 # Configure opcache
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
