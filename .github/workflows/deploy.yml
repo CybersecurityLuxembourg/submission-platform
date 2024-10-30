@@ -11,6 +11,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_SSH_PORT }}
+          debug: true
+          script: |
+            echo "SSH connection successful"
+
+
       - name: Build Assets
         run: |
           npm ci
@@ -18,25 +30,18 @@ jobs:
           zip -r build_artifacts.zip public/build
 
       - name: Sync Files to Server
-        uses: appleboy/scp-action@v0.1.1
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           source: "."
           target: "/var/www/applications.nc3.lu"
-          recursive: true
           rm: true
-          exclude: |
-            .git/
-            node_modules/
-            vendor/
-            .env
-            docker-compose.env
-            build_artifacts.zip
+
 
       - name: Upload Build Artifacts
-        uses: appleboy/scp-action@v0.1.1
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
@@ -46,12 +51,12 @@ jobs:
           target: "/var/www/applications.nc3.lu/"
 
       - name: Create .env File on Server
-        uses: appleboy/ssh-action@v0.1.1
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_SSH_PORT }}
+          port: 22
           script: |
             cat > /var/www/applications.nc3.lu/.env << EOL
             APP_NAME="NC3's Application Platform"
@@ -106,7 +111,7 @@ jobs:
             chmod 600 /var/www/applications.nc3.lu/.env
 
       - name: Create Docker Compose .env File on Server
-        uses: appleboy/ssh-action@v0.1.1
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
@@ -120,7 +125,7 @@ jobs:
             EOL
             chmod 600 /var/www/applications.nc3.lu/docker-compose.env
       - name: Run Deployment Script on Server
-        uses: appleboy/ssh-action@v0.1.1
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
