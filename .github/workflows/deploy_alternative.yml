@@ -35,13 +35,12 @@ jobs:
       - name: Sync Files to Server
         run: |
           rsync -avz --delete \
-            -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
-            --exclude 'node_modules' \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'tests' \
-            ./build_artifacts.zip ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
-
+          -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
+          --exclude 'node_modules' \
+          --exclude '.git' \
+          --exclude '.github' \
+          --exclude 'tests' \
+          ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
       - name: Create Configuration Files and Deploy
         run: |
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
@@ -109,7 +108,7 @@ jobs:
           chmod 600 docker-compose.env
 
           # Extract build artifacts and deploy
-          unzip -o build_artifacts.zip -d public
+          unzip -o build_artifacts.zip
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh
           ENDSSH
