@@ -1,4 +1,3 @@
-# Update the previous Dockerfile to include Node.js
 FROM php:8.3-fpm
 
 # Install system dependencies
@@ -28,7 +27,7 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
-# Copy composer files first to leverage Docker cache
+# Copy composer files first
 COPY composer.* ./
 RUN composer install --optimize-autoloader --no-dev --no-scripts
 
@@ -48,3 +47,4 @@ RUN php artisan config:cache \
     && php artisan route:cache \
     && php artisan view:cache \
     && php artisan optimize
+
