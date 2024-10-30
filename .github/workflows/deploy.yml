@@ -11,128 +11,104 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Test SSH Connection
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          debug: true
-          script: |
-            echo "SSH connection successful"
 
-
-      - name: Build Assets
+      - name: Install dependencies and build
         run: |
           npm ci
           npm run build
           zip -r build_artifacts.zip public/build
 
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.PRODUCTION_ENV_SSH_PRIVATE_KEY }}
+          known_hosts: 'placeholder'
+          if_key_exists: replace
+
+      - name: Adding known hosts on source host from bastion host
+        run: ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Adding known hosts on source host from target host
+        run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
+
+
       - name: Sync Files to Server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: "."
-          target: "/var/www/applications.nc3.lu"
-          rm: true
+        run: |
+          rsync -avz --delete \
+          -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
+          --exclude 'node_modules' \
+          --exclude '.git' \
+          --exclude '.github' \
+          --exclude 'tests' \
+          ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
+      - name: Create Configuration Files and Deploy
+        run: |
+          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
+          cd /var/www/applications.nc3.lu
 
+          # Create .env file
+          cat > .env << 'EOL'
+          APP_NAME="NC3's Application Platform"
+          APP_ENV=production
+          APP_KEY=${{ secrets.APP_KEY }}
+          APP_DEBUG=false
+          APP_URL=https://applications.nc3.lu
+          APP_LOCALE=en
+          APP_FALLBACK_LOCALE=en
+          APP_FAKER_LOCALE=en_US
 
-      - name: Upload Build Artifacts
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          source: "build_artifacts.zip"
-          target: "/var/www/applications.nc3.lu/"
+          APP_MAINTENANCE_DRIVER=file
+          BCRYPT_ROUNDS=12
 
-      - name: Create .env File on Server
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          script: |
-            cat > /var/www/applications.nc3.lu/.env << EOL
-            APP_NAME="NC3's Application Platform"
-            APP_ENV=production
-            APP_KEY=${{ secrets.APP_KEY }}
-            APP_DEBUG=false
-            APP_URL=https://applications.nc3.lu
-            APP_LOCALE=en
-            APP_FALLBACK_LOCALE=en
-            APP_FAKER_LOCALE=en_US
+          LOG_CHANNEL=stack
+          LOG_STACK=single
+          LOG_DEPRECATIONS_CHANNEL=null
+          LOG_LEVEL=debug
 
-            APP_MAINTENANCE_DRIVER=file
+          DB_CONNECTION=mysql
+          DB_HOST=db
+          DB_PORT=3306
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
-            BCRYPT_ROUNDS=12
+          SESSION_DRIVER=database
+          SESSION_LIFETIME=120
+          SESSION_ENCRYPT=false
+          SESSION_PATH=/
+          SESSION_DOMAIN=null
 
-            LOG_CHANNEL=stack
-            LOG_STACK=single
-            LOG_DEPRECATIONS_CHANNEL=null
-            LOG_LEVEL=debug
+          BROADCAST_CONNECTION=log
+          FILESYSTEM_DISK=local
+          QUEUE_CONNECTION=database
 
-            DB_CONNECTION=mysql
-            DB_HOST=db
-            DB_PORT=3306
-            DB_DATABASE=${{ secrets.DB_DATABASE }}
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          CACHE_STORE=database
+          CACHE_PREFIX=
 
-            SESSION_DRIVER=database
-            SESSION_LIFETIME=120
-            SESSION_ENCRYPT=false
-            SESSION_PATH=/
-            SESSION_DOMAIN=null
+          MAIL_MAILER=log
+          MAIL_HOST=mail.mbox.lu
+          MAIL_PORT=2525
+          MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_ENCRYPTION=null
+          MAIL_FROM_ADDRESS=app@nc3.lu
+          MAIL_FROM_NAME="NC3's Application Platform"
 
-            BROADCAST_CONNECTION=log
-            FILESYSTEM_DISK=local
-            QUEUE_CONNECTION=database
+          VITE_APP_NAME="NC3's Application Platform"
+          EOL
+          chmod 600 .env
 
-            CACHE_STORE=database
-            CACHE_PREFIX=
+          # Create docker-compose.env file
+          cat > docker-compose.env << 'EOL'
+          DB_DATABASE=${{ secrets.DB_DATABASE }}
+          DB_USERNAME=${{ secrets.DB_USERNAME }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          EOL
+          chmod 600 docker-compose.env
 
-            MAIL_MAILER=log
-            MAIL_HOST=mail.mbox.lu
-            MAIL_PORT=2525
-            MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
-            MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-            MAIL_ENCRYPTION=null
-            MAIL_FROM_ADDRESS=app@nc3.lu
-            MAIL_FROM_NAME="NC3's Application Platform"
-
-            VITE_APP_NAME="NC3's Application Platform"
-            EOL
-            chmod 600 /var/www/applications.nc3.lu/.env
-
-      - name: Create Docker Compose .env File on Server
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cat > /var/www/applications.nc3.lu/docker-compose.env << EOL
-            DB_DATABASE=${{ secrets.DB_DATABASE }}
-            DB_USERNAME=${{ secrets.DB_USERNAME }}
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-            EOL
-            chmod 600 /var/www/applications.nc3.lu/docker-compose.env
-      - name: Run Deployment Script on Server
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USERNAME }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.SERVER_SSH_PORT }}
-          script: |
-            cd /var/www/applications.nc3.lu
-            unzip -o build_artifacts.zip -d public
-            chmod +x scripts/deploy.sh
-            ./scripts/deploy.sh
+          # Extract build artifacts and deploy
+          unzip -o build_artifacts.zip
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh
+          ENDSSH
