@@ -25,47 +25,26 @@ jobs:
           known_hosts: 'placeholder'
           if_key_exists: replace
 
-      - name: Configure SSH Setup
+      - name: Add SSH known hosts
         run: |
-          # Add bastion host to known_hosts
           ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-
-          # Add production host to known_hosts through bastion
-          ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} \
-            ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
-
-          # Create SSH config for easier connections
-          mkdir -p ~/.ssh
-          cat > ~/.ssh/config << EOF
-          Host bastion
-            HostName ${{ secrets.BASTION_HOST }}
-            User ${{ secrets.BASTION_USER }}
-            Port ${{ secrets.BASTION_SSH_PORT }}
-            IdentityFile ~/.ssh/id_rsa
-            StrictHostKeyChecking yes
-
-          Host production
-            HostName ${{ secrets.PRODUCTION_ENV_HOST }}
-            User ${{ secrets.PRODUCTION_ENV_USER }}
-            ProxyCommand ssh -W %h:%p bastion
-            StrictHostKeyChecking yes
-          EOF
-          chmod 600 ~/.ssh/config
+          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
 
 
       - name: Sync Files to Server
         run: |
           rsync -avz --delete \
-            -e "ssh -o ProxyCommand='ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} -W %h:%p'" \
+            -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
             --exclude 'node_modules' \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'tests' \
             . ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
 
+
       - name: Create Configuration Files and Deploy
         run: |
-          ssh production "bash -s" << 'ENDSSH'
+          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
           cd /var/www/applications.nc3.lu
 
           # Create .env file
