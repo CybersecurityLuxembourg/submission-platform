@@ -5,8 +5,13 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: laravel_app
+        container_name: nc3_app
         restart: unless-stopped
+        environment:
+            DB_HOST: db
+            DB_DATABASE: nc3_db
+            DB_USERNAME: nc3_user
+            DB_PASSWORD: nc3_password
         volumes:
             - ./:/var/www/html
             - ./storage:/var/www/html/storage
@@ -17,7 +22,7 @@ services:
 
     nginx:
         image: nginx:stable-alpine
-        container_name: laravel_nginx
+        container_name: nc3_nginx
         restart: unless-stopped
         ports:
             - "8080:80"
@@ -28,21 +33,16 @@ services:
             - app
         networks:
             - app_network
-    node:
-        image: node:18-alpine
-        volumes:
-            - .:/var/www/html
-        working_dir: /var/www/html
-        profiles: [ "dev" ]
+
     db:
         image: mysql:8.0
-        container_name: laravel_db
+        container_name: nc3_db
         restart: unless-stopped
         environment:
-            MYSQL_DATABASE: ${DB_DATABASE}
-            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-            MYSQL_PASSWORD: ${DB_PASSWORD}
-            MYSQL_USER: ${DB_USERNAME}
+            MYSQL_DATABASE: nc3_db
+            MYSQL_USER: nc3_user
+            MYSQL_PASSWORD: nc3_password
+            MYSQL_ROOT_PASSWORD: nc3_root_password
         volumes:
             - dbdata:/var/lib/mysql
         networks:
@@ -52,10 +52,16 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.backup
-        container_name: laravel_backup
+        container_name: nc3_backup
+        environment:
+            DB_HOST: db
+            DB_DATABASE: nc3_db
+            DB_USERNAME: nc3_user
+            DB_PASSWORD: nc3_password
         volumes:
             - ./:/var/www/html
             - /home/ppa:/backups
+            - dbdata:/var/lib/mysql:ro
         depends_on:
             - db
         networks:
@@ -67,3 +73,4 @@ networks:
 
 volumes:
     dbdata:
+        driver: local
