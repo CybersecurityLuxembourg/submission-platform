@@ -1,13 +1,3 @@
-# Stage 1: Build assets with Node.js
-FROM node:16-alpine AS node-builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY resources/ ./resources/
-COPY vite.config.js ./
-RUN npm run build
-
-# Stage 2: Install PHP dependencies with Composer
 FROM composer:2 AS composer-builder
 WORKDIR /app
 COPY composer.json composer.lock ./
