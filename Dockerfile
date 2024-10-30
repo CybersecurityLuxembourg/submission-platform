@@ -1,7 +1,25 @@
-FROM php:8.3-fpm
+# Stage 1: Build assets with Node.js
+FROM node:16-alpine AS node-builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY resources/ ./resources/
+COPY vite.config.js ./
+RUN npm run build
+
+# Stage 2: Install PHP dependencies with Composer
+FROM composer:2 AS composer-builder
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress
+COPY . .
+
+# Stage 3: Production image
+FROM php:8.3-fpm-alpine
+WORKDIR /var/www/html
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk update && apk add --no-cache \
     git \
     curl \
     libpng-dev \
@@ -9,42 +27,22 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    nodejs \
-    npm
-
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+    bash
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd opcache
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # Configure opcache
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
-# Get latest Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Set working directory
-WORKDIR /var/www/html
-
-# Copy composer files first
-COPY composer.* ./
-RUN composer install --optimize-autoloader --no-dev --no-scripts
-
-# Copy the rest of the application
-COPY . .
-
-# Install npm dependencies and build assets
-COPY package*.json ./
-RUN npm ci && npm run build
+# Copy application files
+COPY --from=composer-builder /app /var/www/html
+COPY --from=node-builder /app/dist /var/www/html/public/build
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Run Laravel optimization commands
-RUN php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan optimize
-
+# Expose port and start PHP-FPM
+EXPOSE 9000
+CMD ["php-fpm"]
