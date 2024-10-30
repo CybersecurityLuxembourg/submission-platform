@@ -53,6 +53,27 @@ if (isset($__messageOriginal)) { $message = $__messageOriginal; }
 endif;
 unset($__errorArgs, $__bag); ?>
                     </div>
+                    <div class="mb-6">
+                        <label for="visibility" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Visibility</label>
+                        <select name="visibility" id="visibility"
+                                class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required>
+                            <option value="public">Public</option>
+                            <option value="authenticated">Authenticated Users Only</option>
+                            <option value="private" selected>Private</option>
+                        </select>
+                        <?php $__errorArgs = ['visibility'];
+$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+if ($__bag->has($__errorArgs[0])) :
+if (isset($message)) { $__messageOriginal = $message; }
+$message = $__bag->first($__errorArgs[0]); ?>
+                        <span class="text-red-600 text-sm"><?php echo e($message); ?></span>
+                        <?php unset($message);
+if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+endif;
+unset($__errorArgs, $__bag); ?>
+                    </div>
+
 
                     <div class="mb-6">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Form Categories</h3>
@@ -69,20 +90,6 @@ unset($__errorArgs, $__bag); ?>
                                     <textarea :name="'categories['+index+'][description]'" :id="'category_description_'+index" x-model="category.description"
                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                               rows="2"></textarea>
-                                </div>
-                                <div class="flex space-x-4 mb-3">
-                                    <div class="flex-1">
-                                        <label :for="'category_percentage_start_'+index" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Start Percentage</label>
-                                        <input type="number" :name="'categories['+index+'][percentage_start]'" :id="'category_percentage_start_'+index" x-model="category.percentage_start"
-                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                               min="0" max="100" required>
-                                    </div>
-                                    <div class="flex-1">
-                                        <label :for="'category_percentage_end_'+index" class="block text-gray-700 dark:text-gray-300 font-medium mb-2">End Percentage</label>
-                                        <input type="number" :name="'categories['+index+'][percentage_end]'" :id="'category_percentage_end_'+index" x-model="category.percentage_end"
-                                               class="w-full mt-1 p-2 border rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                               min="0" max="100" required>
-                                    </div>
                                 </div>
                                 <button type="button" @click="categories = categories.filter((_, i) => i !== index)"
                                         class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"

@@ -16,6 +16,7 @@ class Form extends Model
         'title',
         'description',
         'status',
+        'visibility'
     ];
 
     /**
@@ -57,4 +58,37 @@ class Form extends Model
             ->withPivot('can_edit')
             ->withTimestamps();
     }
+    public function accessLinks(): HasMany
+    {
+        return $this->hasMany(FormAccessLink::class);
+    }
+
+    public function canAccess($user = null): bool
+    {
+        // Public forms are always accessible
+        if ($this->visibility === 'public') {
+            return true;
+        }
+
+        // Authenticated-only forms require just a logged-in user
+        if ($this->visibility === 'authenticated') {
+            return $user !== null;
+        }
+
+        // Private forms require specific access
+        if ($this->visibility === 'private') {
+            if ($user === null) {
+                return false;
+            }
+
+            return $user->isAdmin() ||
+                $user->id === $this->user_id ||
+                $this->users->contains($user->id);
+        }
+
+        return false;
+    }
+
+
+
 }

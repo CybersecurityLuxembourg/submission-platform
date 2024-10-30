@@ -31,15 +31,33 @@
                                             Created <?php echo e($form->created_at->diffForHumans()); ?>
 
                                         </span>
+
                                         <?php if($form->visibility === 'public'): ?>
-                                            <a href="<?php echo e(route('forms.show', $form)); ?>" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200">View</a>
-                                        <?php else: ?>
-                                            <span class="px-4 py-2 bg-gray-300 text-gray-700 rounded">Login Required</span>
+                                            
+                                            <a href="<?php echo e(route('forms.preview', $form)); ?>"
+                                               class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200">
+                                                View Form
+                                            </a>
+                                        <?php elseif($form->visibility === 'authenticated'): ?>
+                                            <?php if(auth()->guard()->check()): ?>
+                                                
+                                                <a href="<?php echo e(route('forms.preview', $form)); ?>"
+                                                   class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200">
+                                                    View Form
+                                                </a>
+                                            <?php else: ?>
+                                                
+                                                <a href="<?php echo e(route('login')); ?>"
+                                                   class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition duration-200">
+                                                    Login Required
+                                                </a>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                         </div>
+
                         <div class="mt-6">
                             <?php echo e($forms->links()); ?>
 

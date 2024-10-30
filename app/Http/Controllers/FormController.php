@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -53,8 +54,6 @@ class FormController extends Controller
             'categories' => 'required|array|min:1',
             'categories.*.name' => 'required|string|max:255',
             'categories.*.description' => 'nullable|string',
-            'categories.*.percentage_start' => 'required|integer|min:0|max:100',
-            'categories.*.percentage_end' => 'required|integer|min:0|max:100|gt:categories.*.percentage_start',
         ]);
 
         $form = Form::create([
@@ -69,8 +68,6 @@ class FormController extends Controller
             $form->categories()->create([
                 'name' => $categoryData['name'],
                 'description' => $categoryData['description'],
-                'percentage_start' => $categoryData['percentage_start'],
-                'percentage_end' => $categoryData['percentage_end'],
                 'order' => $index + 1,
             ]);
         }
@@ -103,7 +100,7 @@ class FormController extends Controller
 
         $form->update($request->only('title', 'description', 'status', 'visibility'));
 
-        return redirect()->route('forms.index')->with('success', 'Form updated successfully.');
+        return redirect()->route('forms.user_index')->with('success', 'Form updated successfully.');
     }
 
     /**
@@ -115,7 +112,7 @@ class FormController extends Controller
 
         $form->delete();
 
-        return redirect()->route('forms.index')->with('success', 'Form deleted successfully.');
+        return redirect()->route('forms.user_index')->with('success', 'Form deleted successfully.');
     }
 
     /**
@@ -123,7 +120,7 @@ class FormController extends Controller
      */
     public function preview(Form $form): View|Factory|Application
     {
-        $this->authorize('view', $form);
+       $this->authorize('view', $form);
 
         if ($form->visibility === 'authenticated' && !Auth::check()) {
             abort(403, 'This form is only accessible to authenticated users.');
@@ -134,5 +131,23 @@ class FormController extends Controller
         }
 
         return view('forms.preview', compact('form'));
+    }
+
+    /**
+     * Remove a user from the form.
+     *
+     * @param Form $form
+     * @param User $user
+     * @return RedirectResponse
+     * @throws AuthorizationException
+     */
+    public function removeUser(Form $form, User $user): RedirectResponse
+    {
+        $this->authorize('assignUsers', $form);
+
+        $form->appointedUsers()->detach($user->id);
+
+        return redirect()->route('forms.edit', $form)
+            ->with('success', 'User removed successfully.');
     }
 }

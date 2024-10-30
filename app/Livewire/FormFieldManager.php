@@ -27,6 +27,7 @@ class FormFieldManager extends Component
         'options' => '',
         'required' => false,
         'content' => '',
+        'char_limit' => null
     ];
 
     public $confirmingCategoryDeletion = false;
@@ -188,6 +189,9 @@ class FormFieldManager extends Component
             $rules[$prefix.'.label'] = 'required|string|max:255';
             if (in_array($this->{$prefix}['type'], ['select', 'checkbox', 'radio'])) {
                 $rules[$prefix.'.options'] = 'required|string';
+            }
+            if (in_array($this->{$prefix}['type'], ['text', 'textarea'])) {
+                $rules[$prefix.'.char_limit'] = 'nullable|integer|min:1';  // Add this
             }
             $rules[$prefix.'.required'] = 'boolean';
         }

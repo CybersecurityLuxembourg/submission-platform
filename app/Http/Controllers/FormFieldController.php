@@ -21,13 +21,22 @@ class FormFieldController extends Controller
 
         $request->validate([
             'label' => 'required|max:255',
-            'type' => 'required|in:text,textarea,select,checkbox,radio',
+            'type' => 'required|in:text,textarea,select,checkbox,radio,header,description,file',
             'options' => 'nullable',
             'required' => 'boolean',
             'order' => 'integer',
+            'char_limit' => 'nullable|integer|min:1',
         ]);
 
-        $form->fields()->create($request->all());
+        // For header and description types, copy the label to content field
+        $data = $request->all();
+        if (in_array($request->type, ['header', 'description'])) {
+            $data['content'] = $request->label;
+            $data['required'] = false;  // Headers and descriptions are never required
+        }
+
+        $form->fields()->create($data);
+
 
         return redirect()->route('forms.edit', $form)->with('success', 'Field added successfully.');
     }
@@ -41,13 +50,22 @@ class FormFieldController extends Controller
 
         $request->validate([
             'label' => 'required|max:255',
-            'type' => 'required|in:text,textarea,select,checkbox,radio',
+            'type' => 'required|in:text,textarea,select,checkbox,radio,header,description,file',
             'options' => 'nullable',
             'required' => 'boolean',
             'order' => 'integer',
+            'char_limit' => 'nullable|integer|min:1',
+            'content' => 'nullable|string',  // For header and description content
         ]);
 
-        $field->update($request->all());
+        // For header and description types, copy the label to content field
+        $data = $request->all();
+        if (in_array($request->type, ['header', 'description'])) {
+            $data['content'] = $request->label;
+            $data['required'] = false;  // Headers and descriptions are never required
+        }
+
+        $field->update($data);
 
         return redirect()->route('forms.edit', $form)->with('success', 'Field updated successfully.');
     }
