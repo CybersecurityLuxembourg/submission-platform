@@ -2,7 +2,10 @@
 set -e
 
 echo "🚀 Starting deployment process..."
-
+if ! docker-compose ps | grep -q 'app'; then
+    echo "App container is not running. Starting containers..."
+    docker-compose up -d
+fi
 # Install/update PHP dependencies
 docker-compose exec -T app composer install --optimize-autoloader --no-dev
 
