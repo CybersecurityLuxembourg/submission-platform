@@ -28,8 +28,19 @@ class FormController extends Controller
     public function userIndex(): View|Factory|Application
     {
         $this->authorize('create', Form::class);
-        $forms = Auth::user()->forms()->latest()->get();
-        return view('forms.user-index', compact('forms'));
+
+        // Get forms created by the user
+        $createdForms = Auth::user()->forms()->latest();
+
+        // Get forms the user is assigned to
+        $assignedForms = Form::whereHas('appointedUsers', function($query) {
+            $query->where('user_id', Auth::id());
+        })->latest();
+
+        // Combine both queries and get the results
+        $forms = $createdForms->union($assignedForms)->get();
+
+        return view('forms.user-index', ['forms' => $forms]);
     }
 
     /**
