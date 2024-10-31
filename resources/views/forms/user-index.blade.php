@@ -67,7 +67,7 @@
                                     {{ $form->created_at->format('M d, Y') }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    @  @if($form->user_id === Auth::id() || $form->appointedUsers()->where('user_id', Auth::id())->where('can_edit', true)->exists())
+                                      @if($form->user_id === Auth::id() || $form->appointedUsers()->where('user_id', Auth::id())->where('can_edit', true)->exists())
                                         <a href="{{ route('forms.edit', $form) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
                                             Edit
                                         </a>
