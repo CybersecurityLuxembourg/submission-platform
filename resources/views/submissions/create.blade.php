@@ -29,17 +29,6 @@
                     >
                         @csrf
 
-                        <!-- Progress bar -->
-                        <div class="mb-8">
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
-                                <div class="bg-blue-600 h-2.5 rounded-full"
-                                     x-bind:style="`width: ${percentageComplete}%`"></div>
-                            </div>
-                            <div class="text-sm text-gray-600 dark:text-gray-400">
-                                Progress: <span x-text="`${Math.round(percentageComplete)}%`"></span>
-                            </div>
-                        </div>
-
                         @foreach($form->categories as $index => $category)
                             <div x-show="step === {{ $index + 1 }}"
                                  x-transition:enter="transition ease-out duration-300"
