@@ -12,15 +12,7 @@
                     <p class="mb-4">{{ $form->description }}</p>
 
                     <form x-data="{ step: 1, totalSteps: {{ $form->categories->count() }} }">
-                        <!-- Progress bar -->
-                        <div class="mb-4">
-                            <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200 dark:bg-gray-700">
-                                <div :style="'width:' + (step / totalSteps * 100) + '%'" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
-                            </div>
-                            <div class="text-center">
-                                Step <span x-text="step"></span> of <span x-text="totalSteps"></span>
-                            </div>
-                        </div>
+
 
                         @foreach($form->categories as $index => $category)
                             <div x-show="step === {{ $index + 1 }}">
