@@ -278,13 +278,13 @@ class FormFieldManager extends Component
             $this->loadCategories();
         }
     }
-    public function editCategory($categoryId)
+    public function editCategory($categoryId): void
     {
         $this->categoryBeingEdited = FormCategory::find($categoryId)->toArray();
         $this->editingCategory = true;
     }
 
-    public function updateCategory()
+    public function updateCategory(): void
     {
         $this->validate([
             'categoryBeingEdited.name' => 'required|string|max:255',
@@ -301,17 +301,39 @@ class FormFieldManager extends Component
         $this->loadCategories();
     }
 
-    public function editField($fieldId)
+    public function editField($fieldId): void
     {
-        $this->fieldBeingEdited = FormField::find($fieldId)->toArray();
+        $field = FormField::find($fieldId);
+        $this->fieldBeingEdited = array_merge($field->toArray(), [
+            'required' => (bool) $field->required,
+            'options' => $field->options ?? '',
+            'content' => $field->content ?? '',
+            'char_limit' => $field->char_limit ?? null,
+        ]);
         $this->editingField = true;
     }
 
-    public function updateField()
+    public function updateField(): void
     {
         $this->validate($this->fieldValidationRules('fieldBeingEdited'));
 
         $field = FormField::find($this->fieldBeingEdited['id']);
+
+        // Ensure boolean value is properly set
+        $this->fieldBeingEdited['required'] = (bool) $this->fieldBeingEdited['required'];
+
+        // Handle null values appropriately
+        if (in_array($this->fieldBeingEdited['type'], ['header', 'description'])) {
+            $this->fieldBeingEdited['label'] = null;
+            $this->fieldBeingEdited['options'] = null;
+            $this->fieldBeingEdited['required'] = false;
+        } else {
+            $this->fieldBeingEdited['content'] = null;
+            if (!in_array($this->fieldBeingEdited['type'], ['select', 'checkbox', 'radio'])) {
+                $this->fieldBeingEdited['options'] = null;
+            }
+        }
+
         $field->update($this->fieldBeingEdited);
 
         $this->editingField = false;

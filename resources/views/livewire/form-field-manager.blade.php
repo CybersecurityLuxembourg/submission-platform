@@ -306,24 +306,6 @@
                                 @error('categoryBeingEdited.description') <span
                                     class="text-red-600 text-sm">{{ $message }}</span> @enderror
                             </div>
-                            <div class="mb-4">
-                                <label for="edit-category-percentage-start"
-                                       class="block text-sm font-medium text-gray-700">Percentage Start</label>
-                                <input type="number" id="edit-category-percentage-start"
-                                       wire:model.defer="categoryBeingEdited.percentage_start"
-                                       class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                                @error('categoryBeingEdited.percentage_start') <span
-                                    class="text-red-600 text-sm">{{ $message }}</span> @enderror
-                            </div>
-                            <div class="mb-4">
-                                <label for="edit-category-percentage-end"
-                                       class="block text-sm font-medium text-gray-700">Percentage End</label>
-                                <input type="number" id="edit-category-percentage-end"
-                                       wire:model.defer="categoryBeingEdited.percentage_end"
-                                       class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
-                                @error('categoryBeingEdited.percentage_end') <span
-                                    class="text-red-600 text-sm">{{ $message }}</span> @enderror
-                            </div>
                         </div>
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                             <button type="submit"

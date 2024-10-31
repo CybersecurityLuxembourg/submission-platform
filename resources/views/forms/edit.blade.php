@@ -132,7 +132,7 @@
                     <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">Select Users</label>
                     <select name="user_ids[]" multiple
                             class="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500">
-                        @foreach(User::whereIn('role', ['internal_evaluator', 'external_evaluator'])
+                        @foreach(User::whereIn('role', ['internal_evaluator', 'external_evaluator', 'admin'])
                                     ->where('id', '!=', auth()->id())
                                     ->orderBy('name')
                                     ->get() as $user)
