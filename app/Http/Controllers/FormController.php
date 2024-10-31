@@ -27,6 +27,7 @@ class FormController extends Controller
     }
     public function userIndex(): View|Factory|Application
     {
+        $this->authorize('create', Form::class);
         $forms = Auth::user()->forms()->latest()->get();
         return view('forms.user-index', compact('forms'));
     }
