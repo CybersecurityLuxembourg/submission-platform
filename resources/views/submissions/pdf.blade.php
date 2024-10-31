@@ -158,7 +158,7 @@
                     @elseif($field['type'] === 'radio' || $field['type'] === 'select')
                         {{ $field['displayValue'] ?: 'Not selected' }}
                     @else
-                        {{ $field['displayValue'] ?: 'N/A' }}
+                        {{ $field['displayValue'] ?: '' }}
                     @endif
                 </div>
             </div>
