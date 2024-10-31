@@ -15,18 +15,7 @@
                         <p class="mb-6 text-gray-600 dark:text-gray-400">{{ $form->description }}</p>
                     @endif
 
-                    <form action="{{ route('submissions.store', $form) }}" method="POST" enctype="multipart/form-data"
-                          x-data="{
-                            step: 1,
-                            totalSteps: {{ $form->categories->count() }},
-                            percentageComplete: 0,
-                            updatePercentage() {
-                                this.percentageComplete = (this.step / this.totalSteps) * 100;
-                            }
-                          }"
-                          x-init="updatePercentage"
-                          @step-changed="updatePercentage"
-                    >
+                    <form action="{{ route('submissions.store', $form) }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
                         @foreach($form->categories as $index => $category)
