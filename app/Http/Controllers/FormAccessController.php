@@ -28,9 +28,16 @@ class FormAccessController extends Controller
             'can_edit' => 'boolean',
         ]);
 
-        $form->appointedUsers()->syncWithPivotValues($validatedData['user_ids'], [
-            'can_edit' => $validatedData['can_edit'] ?? false,
-        ]);
+
+        $existingUserIds = $form->appointedUsers->pluck('id')->toArray();
+
+        $newUserIds = array_diff($validatedData['user_ids'], $existingUserIds);
+
+        foreach ($newUserIds as $userId) {
+            $form->appointedUsers()->attach($userId, [
+                'can_edit' => $validatedData['can_edit'] ?? false,
+            ]);
+        }
 
         return redirect()->route('forms.edit', $form)->with('success', 'Users assigned successfully.');
     }
