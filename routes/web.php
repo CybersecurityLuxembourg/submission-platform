@@ -4,6 +4,7 @@ use App\Http\Controllers\FormAccessController;
 use App\Http\Controllers\FormController;
 use App\Http\Controllers\FormFieldController;
 use App\Http\Controllers\SubmissionController;
+use App\Http\Controllers\SubmissionExportController;
 use App\Http\Middleware\FormAccessMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -49,6 +50,13 @@ Route::middleware([
  #  Route::post('/forms/{form}/submit', [SubmissionController::class, 'store'])->name('submissions.store');
  #  Route::get('/thank-you', [SubmissionController::class, 'thankyou'])->name('submissions.thankyou');
 
+
+  #  Route::get('forms/{form}/submissions/export/csv', [SubmissionExportController::class, 'exportFormCsv'])
+   #     ->name('submissions.export.form.csv');
+    Route::get('forms/{form}/submissions/{submission}/export/pdf', [SubmissionExportController::class, 'exportSubmissionPdf'])
+        ->name('submissions.export.single.pdf');
+   # Route::get('my-submissions/export/csv', [SubmissionExportController::class, 'exportUserSubmissionsCsv'])
+   #     ->name('submissions.export.user.csv');
 
     Route::post('/forms/{form}/assign-users', [FormAccessController::class, 'assignUsers'])->name('forms.assign-users');
     Route::post('/forms/{form}/create-access-link', [FormAccessController::class, 'createAccessLink'])->name('forms.create-access-link');

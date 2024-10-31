@@ -223,4 +223,67 @@ class FormPolicy
                 ->where('can_edit', true)
                 ->exists();
     }
+
+    /**
+     * Determine whether the user can export all form submissions.
+     */
+    public function exportAllSubmissions(User $user, Form $form): bool
+    {
+        // Form creator can export all submissions
+        if ($user->id === $form->user_id) {
+            return true;
+        }
+
+        // Internal evaluators with edit rights can export all submissions
+        if ($user->role === 'internal_evaluator') {
+            return $form->appointedUsers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        // External evaluators can export all submissions if appointed
+        if ($user->role === 'external_evaluator') {
+            return $form->appointedUsers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can export individual submissions.
+     */
+    public function exportSubmission(User $user, Form $form): bool
+    {
+        // Form creator can export any submission
+        if ($user->id === $form->user_id) {
+            return true;
+        }
+
+        // Users can export their own submissions
+        if ($form->submissions()->where('user_id', $user->id)->exists()) {
+            return true;
+        }
+
+        // Internal evaluators with edit rights can export submissions
+        if ($user->role === 'internal_evaluator') {
+            return $form->appointedUsers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        // External evaluators can export submissions if appointed
+        if ($user->role === 'external_evaluator') {
+            return $form->appointedUsers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        // Appointed users with can_edit permission can export submissions
+        return $form->appointedUsers()
+            ->where('user_id', $user->id)
+            ->where('can_edit', true)
+            ->exists();
+    }
 }
