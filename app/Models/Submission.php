@@ -14,8 +14,17 @@ class Submission extends Model
     use HasUuids;
     protected $fillable = [
         'form_id',
-        'user_id'
+        'user_id',
+        'status',
     ];
+
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'id';
+    }
     protected $casts = [
         'last_edited_at' => 'datetime',
     ];

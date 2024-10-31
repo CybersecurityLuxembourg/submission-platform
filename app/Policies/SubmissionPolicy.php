@@ -12,7 +12,7 @@ class SubmissionPolicy
     /**
      * Determine whether the user can export/download a specific submission.
      */
-    public function exportDownload(User $user, Submission $submission): bool
+    public function generalPolicy(User $user, Submission $submission): bool
     {
         $form = $submission->form;
 
@@ -46,14 +46,6 @@ class SubmissionPolicy
             ->where('user_id', $user->id)
             ->where('can_edit', true)
             ->exists();
-    }
-
-    /**
-     * Determine whether the user can export their own submissions.
-     */
-    public function exportOwn(User $user, Submission $submission): bool
-    {
-        return $user->id === $submission->user_id;
     }
 
 
