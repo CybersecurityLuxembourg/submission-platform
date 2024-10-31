@@ -39,7 +39,7 @@
                                     @elseif($field['type'] === 'textarea')
                                         <pre class="mt-1 whitespace-pre-wrap">{{ $field['displayValue'] ?: 'N/A' }}</pre>
                                     @else
-                                        <p class="mt-1">{{ $field['displayValue'] ?: 'N/A' }}</p>
+                                        <p class="mt-1">{{ $field['displayValue'] ?: ''}}</p>
                                     @endif
                                 </div>
                             @endforeach
