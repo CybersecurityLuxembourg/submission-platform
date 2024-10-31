@@ -8,7 +8,18 @@ use App\Models\User;
 
 class SubmissionPolicy
 {
+    /**
+     * Perform pre-authorization checks on the model.
+     */
+    public function before(User $user): ?bool
+    {
+        // Admins have full access to everything
+        if ($user->isAdmin()) {
+            return true;
+        }
 
+        return null; // Fall through to specific policy methods
+    }
     /**
      * Determine whether the user can export/download a specific submission.
      */
