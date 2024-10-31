@@ -28,6 +28,9 @@
                                 Title
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
+                                Role
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
                                 Status
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-200 uppercase tracking-wider">
@@ -47,6 +50,13 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                     {{ $form->title }}
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                                    @if($form->user_id === Auth::id())
+                                        <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">Owner</span>
+                                    @else
+                                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Assignee</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 capitalize">
                                     {{ $form->status }}
                                 </td>
@@ -57,21 +67,25 @@
                                     {{ $form->created_at->format('M d, Y') }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('forms.edit', $form) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
-                                        Edit
-                                    </a>
-                                    <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                    @if($form->user_id === Auth::id())
+                                        <a href="{{ route('forms.edit', $form) }}" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                            Edit
+                                        </a>
+                                        <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                    @endif
                                     <a href="{{ route('submissions.index', $form) }}" class="text-green-600 dark:text-green-400 hover:underline">
                                         Submissions
                                     </a>
-                                    <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
-                                    <form action="{{ route('forms.destroy', $form) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure?');">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">
-                                            Delete
-                                        </button>
-                                    </form>
+                                    @if($form->user_id === Auth::id())
+                                        <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
+                                        <form action="{{ route('forms.destroy', $form) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    @endif
                                     @if($form->status === 'published')
                                         <span class="text-gray-300 dark:text-gray-500 mx-1">|</span>
                                         <a href="{{ route('forms.preview', $form) }}" class="text-indigo-600 dark:text-indigo-400 hover:underline">
