@@ -1,2 +1,0 @@
-<img width="140" src="<?php echo e(asset('img/logo_nc3_white.png')); ?>" alt="platform logo nationaly cybersecurity competence center">
-<?php /**PATH C:\Users\phpar\Documents\GitHub\submission-platform\resources\views/components/application-logo.blade.php ENDPATH**/ ?>
