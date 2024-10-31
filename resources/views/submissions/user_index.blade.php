@@ -44,6 +44,12 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <a href="{{ route('submissions.show', ['form' => $submission->form, 'submission' => $submission]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">View</a>
+
+                                            @can('exportOwn', $submission)
+                                                <a href="{{ route('submissions.export.single.pdf', ['form' => $submission->form, 'submission' => $submission]) }}" class="ml-2 text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
+                                                    Export PDF
+                                                </a>
+                                            @endcan
                                         </td>
                                     </tr>
                                 @endforeach
