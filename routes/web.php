@@ -45,9 +45,9 @@ Route::middleware([
     Route::get('/my-submissions', [SubmissionController::class, 'showUserSubmission'])->name('submissions.user');
 
 // Public Form Submission Routes
-   # Route::get('/forms/{form}/submit', [SubmissionController::class, 'show'])->name('submissions.create');
-   # Route::post('/forms/{form}/submit', [SubmissionController::class, 'store'])->name('submissions.store');
-   # Route::get('/thank-you', [SubmissionController::class, 'thankyou'])->name('submissions.thankyou');
+ #  Route::get('/forms/{form}/submit', [SubmissionController::class, 'show'])->name('submissions.create');
+ #  Route::post('/forms/{form}/submit', [SubmissionController::class, 'store'])->name('submissions.store');
+ #  Route::get('/thank-you', [SubmissionController::class, 'thankyou'])->name('submissions.thankyou');
 
 
     Route::post('/forms/{form}/assign-users', [FormAccessController::class, 'assignUsers'])->name('forms.assign-users');

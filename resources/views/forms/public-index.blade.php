@@ -24,14 +24,14 @@
 
                                         @if($form->visibility === 'public')
                                             {{-- Public forms are always accessible with a link --}}
-                                            <a href="{{ route('forms.preview', $form) }}"
+                                            <a href="{{ route('submissions.create', $form) }}"
                                                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200">
                                                 View Form
                                             </a>
                                         @elseif($form->visibility === 'authenticated')
                                             @auth
                                                 {{-- Authenticated users can access these forms --}}
-                                                <a href="{{ route('forms.preview', $form) }}"
+                                                <a href="{{ route('submissions.create', $form) }}"
                                                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-200">
                                                     View Form
                                                 </a>
