@@ -63,7 +63,7 @@ class FormPolicy
      */
     public function create(User $user): bool
     {
-        return in_array($user->role, ['internal_evaluator', 'admin']);
+        return in_array($user->role, ['internal_evaluator','external_evaluator', 'admin']);
     }
 
     /**
@@ -197,7 +197,7 @@ class FormPolicy
         }
 
         // Internal evaluators with edit rights can export submissions
-        if ($user->role === 'internal_evaluator') {
+        if ($user->role === 'internal_evaluator' && $user->role === 'external_evaluator') {
             return $form->appointedUsers()
                 ->where('user_id', $user->id)
                 ->where('can_edit', true)
@@ -217,7 +217,7 @@ class FormPolicy
             return true;
         }
 
-        return $user->role === 'internal_evaluator' &&
+        return $user->role === 'internal_evaluator' || $user->role === 'external_evaluator' &&
             $form->appointedUsers()
                 ->where('user_id', $user->id)
                 ->where('can_edit', true)
