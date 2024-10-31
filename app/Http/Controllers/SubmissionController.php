@@ -198,7 +198,7 @@ class SubmissionController extends Controller
      */
     public function downloadFile(Submission $submission, $filename): StreamedResponse
     {
-        $this->authorize('downloadFile', $submission);
+        $this->authorize('generalPolicy', $submission);
         $path = 'submissions/' . $submission->id . '/' . $filename;
 
         // Check if the file exists in private storage
