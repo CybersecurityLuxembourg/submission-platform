@@ -23,7 +23,6 @@ class SubmissionController extends Controller
             abort(404);
         }
 
-
         // Load the form with its categories and fields, properly ordered
         $form->load([
             'categories' => function ($query) {
@@ -34,7 +33,16 @@ class SubmissionController extends Controller
             }
         ]);
 
-        return view('submissions.create', compact('form'));
+        // Prepare data for the progress bar
+        $progressData = [
+            'totalSteps' => $form->categories->count(),
+            'steps' => $form->categories->map(fn($category) => [
+                'name' => $category->name,
+                'description' => $category->description
+            ])->values()
+        ];
+
+        return view('submissions.create', compact('form', 'progressData'));
     }
 
     public function store(Request $request, Form $form): RedirectResponse
