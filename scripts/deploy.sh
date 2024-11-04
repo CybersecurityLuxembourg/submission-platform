@@ -43,25 +43,51 @@ echo "Username: ${DB_USERNAME}"
 echo "Starting Docker services..."
 docker-compose --env-file docker-compose.env up -d
 
-# Function to wait for MySQL to be ready
 wait_for_mysql() {
     echo "Waiting for MySQL to be ready..."
     max_attempts=30
     counter=0
 
+    # Cleanup any existing mysqladmin processes first
+    if pgrep mysqladmin >/dev/null; then
+        echo "Cleaning up existing mysqladmin processes..."
+        sudo killall -9 mysqladmin || true
+    fi
+
     while [ $counter -lt $max_attempts ]; do
-        if docker-compose exec db sh -c 'mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"' &> /dev/null; then
+        # Use timeout to prevent hanging
+        if timeout 10s docker-compose exec -T db bash -c '
+            mysqladmin ping -h localhost \
+            -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" \
+            --connect_timeout=5 --silent' &>/dev/null
+        then
             echo "✅ MySQL is ready!"
             return 0
         fi
+
         counter=$((counter+1))
         echo "Attempt $counter/$max_attempts: MySQL not ready yet..."
+
+        if [ $counter -eq $max_attempts ]; then
+            echo "❌ MySQL failed to become ready. Checking container status..."
+            docker-compose logs db
+            return 1
+        fi
+
         sleep 5
     done
 
-    echo "❌ MySQL failed to become ready"
     return 1
 }
+
+# Add this function to check MySQL connection more safely
+check_mysql_connection() {
+    timeout 10s docker-compose exec -T db bash -c \
+        'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" \
+        -e "SELECT 1;" >/dev/null 2>&1'
+    return $?
+}
+
 
 # Function to initialize database
 initialize_database() {
