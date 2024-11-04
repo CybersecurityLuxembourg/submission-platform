@@ -165,10 +165,6 @@
                                 <div x-show.transition.opacity="step === {{ $index + 1 }}"
                                      class="space-y-6 border-b border-gray-200 dark:border-gray-700 pb-8 mb-8">
 
-                                    @if($category->description)
-                                        <p class="mb-6 text-gray-600 dark:text-gray-400">{{ $category->description }}</p>
-                                    @endif
-
                                     @foreach($category->fields as $field)
                                         <div class="mb-6">
                                             @if($field->type === 'header')
