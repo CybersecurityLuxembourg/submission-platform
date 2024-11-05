@@ -44,7 +44,7 @@ jobs:
       - name: Create Configuration Files and Deploy
         run: |
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} "bash -s" << 'ENDSSH'
-          cd /var/www/applications.nc3.lu
+          cd /var/www/test.applications.nc3.lu
 
 
           # Create .env file
