@@ -25,10 +25,7 @@ class SubmissionExportController extends Controller
         if ($submission->form_id !== $form->id) {
             abort(404);
         }
-        // Check if user can export this submission
-        if (!auth()->user()->can('exportDownload', $submission)) {
-            abort(403);
-        }
+        $this->authorize('export', $submission);
 
         // Load the submission with its values
         $submission->load(['values', 'values.field']);

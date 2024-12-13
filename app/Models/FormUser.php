@@ -14,6 +14,8 @@ class FormUser extends Model
     protected $fillable = [
         'form_id',
         'user_id',
-        'can_edit'
+        'can_edit',
+        'status',
+        'last_activity'
     ];
 }
