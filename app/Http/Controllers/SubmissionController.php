@@ -17,32 +17,45 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class SubmissionController extends Controller
 {
     use AuthorizesRequests;
+
+    /**
+     * @throws \Exception
+     */
     public function show(Form $form): View|Factory|Application
     {
-        if ($form->status !== 'published') {
-            abort(404);
-        }
 
-        // Load the form with its categories and fields, properly ordered
-        $form->load([
-            'categories' => function ($query) {
-                $query->orderBy('order');
-            },
-            'categories.fields' => function ($query) {
-                $query->orderBy('order');
+        try {
+            if ($form->status !== 'published') {
+                \Log::info('Form not published', ['status' => $form->status]);
+                abort(404);
             }
-        ]);
 
-        // Prepare data for the progress bar
-        $progressData = [
-            'totalSteps' => $form->categories->count(),
-            'steps' => $form->categories->map(fn($category) => [
-                'name' => $category->name,
-                'description' => $category->description
-            ])->values()
-        ];
+            // Get draft submission if exists
+            $draftSubmission = null;
+            if (auth()->check()) {
+                $draftSubmission = Submission::where([
+                    'form_id' => $form->id,
+                    'user_id' => auth()->id(),
+                ])->whereIn('status', ['draft', 'ongoing'])
+                    ->first();
+            }
 
-        return view('submissions.create', compact('form', 'progressData'));
+            \Log::info('About to render view', [
+                'view_exists' => view()->exists('submissions.create'),
+                'draft_exists' => !is_null($draftSubmission)
+            ]);
+
+            return view('submissions.create', [
+                'form' => $form,
+                'draftSubmission' => $draftSubmission
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in show method', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     public function store(Request $request, Form $form): RedirectResponse
@@ -100,6 +113,24 @@ class SubmissionController extends Controller
     }
 
     /**
+     * @throws AuthorizationException
+     */
+    public function edit(Form $form, Submission $submission): Factory|View|Application|RedirectResponse
+    {
+        $this->authorize('update', $submission);
+
+        if (!in_array($submission->status, ['draft', 'ongoing'])) {
+            return redirect()->route('submissions.show', ['form' => $form, 'submission' => $submission])
+                ->with('error', 'This submission can no longer be edited.');
+        }
+
+        return view('submissions.edit', [
+            'form' => $form,
+            'submission' => $submission
+        ]);
+    }
+
+    /**
      * Display a thank you page after submission.
      */
     public function thankyou(): View|Factory|Application
@@ -114,17 +145,21 @@ class SubmissionController extends Controller
     public function index(Form $form): View|Factory|Application
     {
         $this->authorize('view', $form);
-
-        $submissions = $form->submissions()->latest()->get();
-
-        return view('submissions.index', compact('form', 'submissions'));
+        return view('submissions.index', compact('form'));
     }
 
     /**
      * Display the specified submission.
+     * @throws AuthorizationException
+     */
+    /**
+     * Display the specified submission.
+     * @throws AuthorizationException
      */
     public function showSubmission(Form $form, Submission $submission): View
     {
+        $this->authorize('view', $submission);
+
         // Ensure the submission belongs to the form
         if ($submission->form_id !== $form->id) {
             abort(404);
@@ -178,7 +213,11 @@ class SubmissionController extends Controller
             ];
         });
 
-        return view('submissions.show', compact('form', 'submission', 'categories'));
+        return view('submissions.show', [
+            'form' => $form,
+            'submission' => $submission,
+            'categories' => $categories
+        ]);
     }
 
 
@@ -187,18 +226,66 @@ class SubmissionController extends Controller
      */
     public function showUserSubmission(): View|Factory|Application
     {
-        $user = auth()->user();
+        $submissions = Submission::where('user_id', auth()->id())
+            ->with(['form']) // Eager load relationships
+            ->orderBy('last_activity', 'desc')
+            ->paginate(10);
 
-        if (!$user) {
-            abort(403, 'Unauthorized action.');
+        return view('submissions.user-index', [
+            'submissions' => $submissions
+        ]);
+    }
+
+    /**
+     * Delete a draft submission and its associated files.
+     * @throws AuthorizationException
+     */
+    public function destroy(Submission $submission): RedirectResponse
+    {
+        $this->authorize('delete', $submission);
+
+        // Only allow deletion of draft submissions
+        if ($submission->status !== 'draft') {
+            return redirect()->back()->with('error', 'Only draft submissions can be deleted.');
         }
 
-        $submissions = Submission::where('user_id', $user->id)
-            ->with('form')
-            ->latest()
-            ->get();
+        try {
+            \DB::beginTransaction();
 
-        return view('submissions.user_index', compact('submissions'));
+            // Get all file paths from submission values
+            $filePaths = $submission->values()
+                ->whereHas('field', function ($query) {
+                    $query->where('type', 'file');
+                })
+                ->pluck('value')
+                ->filter();
+
+            // Delete all associated files from storage
+            foreach ($filePaths as $path) {
+                // Delete from both temporary and permanent locations
+                Storage::disk('private')->delete($path);
+                Storage::disk('private')->delete(str_replace('temp-submissions/', 'submissions/', $path));
+            }
+
+            // Delete the submission and its related values
+            $submission->delete();
+
+            \DB::commit();
+
+            return redirect()->route('submissions.user.index')
+                ->with('success', 'Submission deleted successfully.');
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            logger()->error('Failed to delete submission', [
+                'submission_id' => $submission->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return redirect()->back()
+                ->with('error', 'Failed to delete submission. Please try again.');
+        }
     }
 
     /**
@@ -207,10 +294,24 @@ class SubmissionController extends Controller
     public function downloadFile(Submission $submission, $filename): StreamedResponse
     {
         $this->authorize('generalPolicy', $submission);
-        $path = 'submissions/' . $submission->id . '/' . $filename;
+
+        // Determine the file path based on submission status
+        $path = match ($submission->status) {
+            'draft' => "temp-submissions/{$submission->id}/{$filename}",
+            default => "submissions/{$submission->id}/{$filename}"
+        };
 
         // Check if the file exists in private storage
         if (!Storage::disk('private')->exists($path)) {
+            // If file not found in primary location and submission is draft/ongoing,
+            // check the permanent location as fallback
+            if (in_array($submission->status, ['draft'])) {
+                $permanentPath = "submissions/{$submission->id}/{$filename}";
+                if (Storage::disk('private')->exists($permanentPath)) {
+                    return Storage::disk('private')->download($permanentPath);
+                }
+            }
+
             abort(404, 'File not found.');
         }
 
