@@ -32,6 +32,10 @@ RUN NODE_ENV=production npm run build
 
 # Stage 2: Install PHP dependencies with Composer
 FROM composer:2 AS composer-builder
+ENV http_proxy="http://proxy.lc1.conostix.com:3128" \
+    HTTP_PROXY="http://proxy.lc1.conostix.com:3128" \
+    https_proxy="http://proxy.lc1.conostix.com:3128" \
+    HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
 
 WORKDIR /app
 
@@ -55,6 +59,12 @@ RUN composer run-script post-autoload-dump
 
 # Stage 3: Production image
 FROM php:8.3-fpm-alpine
+
+ENV http_proxy="http://proxy.lc1.conostix.com:3128" \
+    HTTP_PROXY="http://proxy.lc1.conostix.com:3128" \
+    https_proxy="http://proxy.lc1.conostix.com:3128" \
+    HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
+
 WORKDIR /var/www/html
 
 # Install system dependencies
