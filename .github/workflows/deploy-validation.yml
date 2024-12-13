@@ -44,6 +44,11 @@ jobs:
       - name: Create Configuration Files and Deploy
         run: |
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} "bash -s" << 'ENDSSH'
+
+          export http_proxy="http://proxy.lc1.conostix.com:3128"
+          export https_proxy="http://proxy.lc1.conostix.com:3128"
+          export HTTP_PROXY="http://proxy.lc1.conostix.com:3128"
+          export HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
           cd /var/www/test.applications.nc3.lu
 
 
