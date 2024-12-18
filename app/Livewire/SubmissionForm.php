@@ -271,22 +271,10 @@ class SubmissionForm extends Component
 
     public function validateCurrentStep(): void
     {
-        $currentCategory = $this->form->categories[$this->currentStep - 1];
-        $rules = [];
-
-        foreach ($currentCategory->fields as $field) {
-            if ($field->required) {
-                $rules["fieldValues.{$field->id}"] = 'required';
-                if ($field->type === 'file') {
-                    if (!isset($this->fieldValues[$field->id]) || empty($this->fieldValues[$field->id])) {
-                        $rules["tempFiles.field_{$field->id}"] = 'required|file|max:10240|mimes:jpeg,png,pdf,doc,docx,xls,xlsx';
-                    }
-                }
-            }
-        }
-
+        $rules = $this->rules();
         $this->validate($rules);
     }
+
 
     public function submit(): void  // Changed return type to void
     {
@@ -435,6 +423,28 @@ class SubmissionForm extends Component
         }
     }
 
+
+    protected function rules(): array
+    {
+        $currentCategory = $this->form->categories[$this->currentStep - 1] ?? null;
+        if (!$currentCategory) {
+            return [];
+        }
+
+        $rules = [];
+        foreach ($currentCategory->fields as $field) {
+            if ($field->required) {
+                $rules["fieldValues.{$field->id}"] = 'required';
+                if ($field->type === 'file') {
+                    if (!isset($this->fieldValues[$field->id]) || empty($this->fieldValues[$field->id])) {
+                        $rules["tempFiles.field_{$field->id}"] = 'required|file|max:10240|mimes:jpeg,png,pdf,doc,docx,xls,xlsx';
+                    }
+                }
+            }
+        }
+
+        return $rules;
+    }
     public function render(): View|Factory|Application
     {
         return view('livewire.submission-form');
