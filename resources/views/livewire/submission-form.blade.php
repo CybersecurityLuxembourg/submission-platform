@@ -162,7 +162,7 @@
                                                 <p class="text-sm text-gray-700 dark:text-gray-300">
                                                     {{ basename($fieldValues[$field->id]) }}
                                                 </p>
-                                                @if($submission)
+                                                @if($submission && $submission->id)
                                                     <a href="{{ route('submissions.download', ['submission' => $submission->id, 'filename' => basename($fieldValues[$field->id])]) }}"
                                                        class="text-xs text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
                                                         Download file
