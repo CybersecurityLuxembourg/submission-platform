@@ -271,8 +271,7 @@ class SubmissionForm extends Component
 
     public function validateCurrentStep(): void
     {
-        $rules = $this->rules();
-        $this->validate($rules);
+        $this->validate();
     }
 
 
@@ -424,7 +423,7 @@ class SubmissionForm extends Component
     }
 
 
-    protected function rules(): array
+    public function rules(): array
     {
         $currentCategory = $this->form->categories[$this->currentStep - 1] ?? null;
         if (!$currentCategory) {
