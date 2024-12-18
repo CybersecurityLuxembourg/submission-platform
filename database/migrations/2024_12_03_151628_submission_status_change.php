@@ -24,9 +24,6 @@ return new class extends Migration
                 'completed'          // Review process complete
             ])->default('draft');
 
-            // Add last_activity tracking
-            $table->timestamp('last_activity')->nullable();
-
             // Add metadata column for additional status-related info
             $table->json('status_metadata')->nullable();
         });
@@ -38,8 +35,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('submissions', function (Blueprint $table) {
-            $table->dropColumn(['status', 'last_activity', 'status_metadata']);
-            $table->enum('status', ['draft', 'submitted'])->default('draft');
+            $table->dropColumn(['status', 'status_metadata']);
+            $table->foreignId('status_type_id')->constrained('status_types');
         });
     }
 };
