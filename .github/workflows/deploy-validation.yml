@@ -57,7 +57,7 @@ jobs:
           APP_NAME="NC3's Application Platform"
           APP_ENV=production
           APP_KEY=${{ secrets.APP_KEY_TEST }}
-          APP_DEBUG=false
+          APP_DEBUG=true
           APP_URL=https://test.applications.nc3.lu
           APP_LOCALE=en
           APP_FALLBACK_LOCALE=en

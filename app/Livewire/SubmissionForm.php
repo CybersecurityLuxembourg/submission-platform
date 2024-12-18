@@ -69,6 +69,9 @@ class SubmissionForm extends Component
 
     protected function loadSubmissionValues(): void
     {
+        if (!$this->submission) {
+            return;
+        }
         $this->submission->load('values');
         foreach ($this->submission->values as $value) {
             $this->fieldValues[$value->form_field_id] = $value->value;
@@ -329,10 +332,24 @@ class SubmissionForm extends Component
 
     public function updatedTempFiles($value, $key): void
     {
-        $fieldId = str_replace('field_', '', $key);
-
         try {
-            // Store the new temporary file
+            // Ensure we have a submission context before proceeding
+            if (!$this->submission) {
+                logger()->debug('Creating new draft submission for file upload');
+
+                // Create new draft submission without checking for existing ones
+                $this->submission = Submission::create([
+                    'form_id' => $this->form->id,
+                    'user_id' => auth()->id(),
+                    'status' => 'draft',
+                    'last_activity' => now(),
+                ]);
+                logger()->debug('Created new draft submission', ['submission_id' => $this->submission->id]);
+            }
+
+            $fieldId = str_replace('field_', '', $key);
+
+            // Rest of the file handling code remains the same
             $path = $value->store("temp-submissions/{$this->submission->id}", 'private');
 
             // Delete old file if it exists
@@ -346,19 +363,22 @@ class SubmissionForm extends Component
             // Update the field value with the new path
             $this->fieldValues[$fieldId] = $path;
 
-            // If we have a submission, update the value immediately
-            if ($this->submission) {
-                $this->submission->values()->updateOrCreate(
-                    ['form_field_id' => $fieldId],
-                    ['value' => $path]
-                );
-            }
+            // Update the value immediately
+            $this->submission->values()->updateOrCreate(
+                ['form_field_id' => $fieldId],
+                ['value' => $path]
+            );
 
             $this->dispatch('success', 'File uploaded successfully');
+
         } catch (\Exception $e) {
             logger()->error('File upload failed', [
                 'error' => $e->getMessage(),
-                'field_id' => $fieldId
+                'field_id' => $fieldId ?? null,
+                'submission_state' => [
+                    'exists' => isset($this->submission),
+                    'id' => $this->submission->id ?? null
+                ]
             ]);
             $this->dispatch('error', 'File upload failed: ' . $e->getMessage());
         }
