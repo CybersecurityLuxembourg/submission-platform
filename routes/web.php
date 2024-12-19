@@ -41,7 +41,8 @@ Route::middleware([
     // Submissions Routes
     Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])->name('submissions.index');
     Route::get('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'showSubmission'])->name('submissions.show');
-
+    Route::get('/submissions/edit/{form}/{submission}', [SubmissionController::class, 'edit'])
+        ->name('submissions.edit');
 // User Submissions Route
     Route::get('/my-submissions', [SubmissionController::class, 'showUserSubmission'])->name('submissions.user');
 
@@ -61,7 +62,7 @@ Route::middleware([
     Route::post('/forms/{form}/assign-users', [FormAccessController::class, 'assignUsers'])->name('forms.assign-users');
     Route::post('/forms/{form}/create-access-link', [FormAccessController::class, 'createAccessLink'])->name('forms.create-access-link');
     Route::delete('/form-access-links/{accessLink}', [FormAccessController::class, 'deleteAccessLink'])->name('forms.delete-access-link');
-
+    Route::delete('/submissions/{submission}', [SubmissionController::class, 'destroy'])->name('submissions.destroy');
     Route::get('/submissions/{submission}/download/{filename}', [SubmissionController::class, 'downloadFile'])
         ->name('submissions.download');
 
@@ -69,6 +70,6 @@ Route::middleware([
 
 Route::get('/forms', [FormController::class, 'publicIndex'])->name('forms.public_index')->middleware(FormAccessMiddleware::class);
 Route::get('/forms/access/{token}', [FormAccessController::class, 'accessForm'])->name('form.access')->middleware(FormAccessMiddleware::class);
-Route::get('/forms/{form}/submit', [SubmissionController::class, 'show'])->name('submissions.create')->middleware(FormAccessMiddleware::class);
-Route::post('/forms/{form}/submit', [SubmissionController::class, 'store'])->name('submissions.store')->middleware(FormAccessMiddleware::class);
+Route::get('/forms/{form}/submit', [SubmissionController::class, 'show'])->name('submissions.create');
+
 Route::get('/thank-you', [SubmissionController::class, 'thankyou'])->name('submissions.thankyou');
