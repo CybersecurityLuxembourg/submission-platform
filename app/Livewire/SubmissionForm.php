@@ -271,7 +271,7 @@ class SubmissionForm extends Component
 
     public function validateCurrentStep(): void
     {
-        $this->validate();
+        $this->validate($this->rules());
     }
 
 
