@@ -16,6 +16,7 @@ class FormAccessMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
+
         $form = $request->route('form');
 
         if (!$form instanceof Form) {
