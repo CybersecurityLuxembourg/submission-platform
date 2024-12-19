@@ -1,4 +1,16 @@
 <div>
+    <!-- Global Error Display -->
+    @if ($errors->any())
+        <div class="mb-6">
+            <div class="bg-red-50 dark:bg-red-900 text-red-800 dark:text-red-200 px-4 py-3 rounded-md shadow-md">
+                <ul class="list-disc pl-5 space-y-1">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    @endif
     <!-- Auto-save notification -->
     <div x-data="{ show: false }"
          x-show="show"
