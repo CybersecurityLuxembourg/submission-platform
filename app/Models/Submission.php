@@ -16,6 +16,8 @@ class Submission extends Model
         'form_id',
         'user_id',
         'status',
+        'last_activity',
+        'status_metadata'
     ];
 
     /**
@@ -26,7 +28,8 @@ class Submission extends Model
         return 'id';
     }
     protected $casts = [
-        'last_edited_at' => 'datetime',
+        'last_activity' => 'datetime',
+        'updated_at' => 'datetime',
     ];
     /**
      * Get the form that owns the submission.

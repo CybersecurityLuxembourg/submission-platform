@@ -9,6 +9,8 @@ use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Storage;
@@ -47,30 +49,6 @@ class SubmissionForm extends Component
         return $labels;
     }
 
-    public function mount(Form $form, ?Submission $submission = null, bool $isEditMode = false): void
-    {
-        $this->form = $form->load([
-            'categories' => fn($query) => $query->orderBy('order'),
-            'categories.fields' => fn($query) => $query->orderBy('order')
-        ]);
-
-        $this->totalSteps = $this->form->categories->count();
-        $this->isEditMode = $isEditMode;
-
-        $this->steps = $this->form->categories->map(function ($category) {
-            return [
-                'name' => $category->name,
-                'description' => $category->description
-            ];
-        })->toArray();
-
-        if ($submission) {
-            $this->submission = $submission;
-            $this->loadSubmissionValues();
-        } else {
-            $this->loadOrCreateDraft();
-        }
-    }
 
     public function getCurrentStepDataProperty()
     {
@@ -102,24 +80,41 @@ class SubmissionForm extends Component
             'form_id' => $this->form->id,
             'user_id' => auth()->id(),
         ])->whereIn('status', ['draft', 'ongoing'])
-            ->with('values')
+            ->orderBy('last_activity', 'desc')
             ->first();
 
         if ($this->submission) {
             $this->loadSubmissionValues();
+        } else {
+            // Initialize a new draft if none exists
+            $this->submission = new Submission();
+            $this->submission->form_id = $this->form->id;
+            $this->submission->user_id = auth()->id();
+            $this->submission->status = 'draft';
+            $this->submission->last_activity = now();
         }
     }
 
+    /**
+     * @throws Exception
+     */
     public function autosaveDraft(): void
     {
         $this->saveDraft(false);
     }
 
+    /**
+     * @throws Exception
+     */
     public function saveAsDraft(): void
     {
         $this->saveDraft(true);
     }
 
+
+    /**
+     * @throws Exception
+     */
     protected function saveDraft($showNotification = true): void
     {
         if (!auth()->check()) {
@@ -128,32 +123,102 @@ class SubmissionForm extends Component
         }
 
         try {
-            \DB::beginTransaction();
+            DB::beginTransaction();
 
-            if (!$this->submission) {
-                $this->submission = Submission::create([
+            // Log initial state
+            Log::info('Starting draft save process', [
+                'form_id' => $this->form->id,
+                'user_id' => auth()->id(),
+                'has_existing_submission' => isset($this->submission) && $this->submission->exists
+            ]);
+
+            // Create or update submission
+            if (!$this->submission->exists) {
+                // Validate required data
+                if (!$this->form->id) {
+                    throw new Exception('Form ID is missing');
+                }
+
+                if (!auth()->id()) {
+                    throw new Exception('User ID is missing');
+                }
+
+                // Ensure required fields are set
+                $this->submission->form_id = $this->form->id;
+                $this->submission->user_id = auth()->id();
+                $this->submission->status = 'draft';
+                $this->submission->last_activity = now();
+
+
+                // Save new submission
+                $this->submission->save();
+
+                Log::info('New draft created', [
+                    'submission_id' => $this->submission->id,
                     'form_id' => $this->form->id,
-                    'user_id' => auth()->id(),
-                    'status' => 'draft',
-                    'last_activity' => now(),
+                    'user_id' => auth()->id()
                 ]);
+
             } else {
+                // Update existing submission
                 $this->submission->update([
                     'status' => 'draft',
-                    'last_activity' => now(),
+                    'last_activity' => now()
+                ]);
+
+                Log::info('Existing draft updated', [
+                    'submission_id' => $this->submission->id,
+                    'form_id' => $this->form->id,
+                    'user_id' => auth()->id()
                 ]);
             }
 
-            $this->saveValues();
-            \DB::commit();
+            DB::commit();
 
             if ($showNotification) {
-                $this->dispatch('draft-saved');
+                $this->dispatch('success', 'Draft saved successfully.');
             }
+
         } catch (Exception $e) {
-            \DB::rollBack();
-            $this->dispatch('error', 'Failed to save draft: ' . $e->getMessage());
-            throw $e;
+            DB::rollBack();
+            Log::error('Draft save failed', [
+                'error' => $e->getMessage(),
+                'form_id' => $this->form->id,
+                'user_id' => auth()->id()
+            ]);
+
+            throw new Exception('Failed to save draft: ' . $e->getMessage());
+        }
+    }
+
+    public function mount(Form $form, ?Submission $submission = null, bool $isEditMode = false): void
+    {
+        Log::info('Mounting SubmissionForm', [
+            'form_id' => $form->id,
+            'submission_id' => $submission?->id,
+            'is_edit_mode' => $isEditMode
+        ]);
+
+        $this->form = $form->load([
+            'categories' => fn($query) => $query->orderBy('order'),
+            'categories.fields' => fn($query) => $query->orderBy('order')
+        ]);
+
+        $this->totalSteps = $this->form->categories->count();
+        $this->isEditMode = $isEditMode;
+
+        $this->steps = $this->form->categories->map(function ($category) {
+            return [
+                'name' => $category->name,
+                'description' => $category->description
+            ];
+        })->toArray();
+
+        if ($submission) {
+            $this->submission = $submission;
+            $this->loadSubmissionValues();
+        } else {
+            $this->loadOrCreateDraft();
         }
     }
 
