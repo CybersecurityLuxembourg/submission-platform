@@ -386,7 +386,7 @@ class SubmissionForm extends Component
 
             DB::commit();
 
-            $this->redirect(route('submissions.thankyou'));
+            $this->redirect(route('forms.user_index'));
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Submission failed', [
