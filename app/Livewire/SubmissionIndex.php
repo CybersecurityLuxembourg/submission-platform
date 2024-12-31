@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\Form;
+use App\Models\Submission;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -30,6 +32,10 @@ class SubmissionIndex extends Component
 
     public function mount(Form $form): void
     {
+        // Check if user can view submissions
+        if (!Gate::allows('viewAny', [Submission::class, $form])) {
+            abort(403);
+        }
         $this->form = $form;
     }
 
@@ -67,6 +73,8 @@ class SubmissionIndex extends Component
 
     public function render(): Factory|View|Application
     {
+
+
         $submissions = $this->form->submissions()
             ->when($this->statusFilter !== 'all', function ($query) {
                 $query->where('status', $this->statusFilter);

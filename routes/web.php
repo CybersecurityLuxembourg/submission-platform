@@ -39,7 +39,10 @@ Route::middleware([
     Route::delete('/forms/{form}/fields/{field}', [FormFieldController::class, 'destroy'])->name('form_fields.destroy');
 
     // Submissions Routes
-    Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])->name('submissions.index');
+    // Form submissions management
+    Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])
+        ->middleware(['auth', 'can:viewAny,App\Models\Submission,form'])
+        ->name('submissions.index');
     Route::get('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'showSubmission'])->name('submissions.show');
     Route::get('/submissions/edit/{form}/{submission}', [SubmissionController::class, 'edit'])
         ->name('submissions.edit');
