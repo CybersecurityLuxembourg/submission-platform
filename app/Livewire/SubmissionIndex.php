@@ -8,6 +8,7 @@ use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -21,7 +22,7 @@ class SubmissionIndex extends Component
     public string $sortField = 'last_activity';
     public string $sortDirection = 'desc';
     public bool $showCompleted = false;
-
+    protected $listeners = ['refresh' => '$refresh'];
     protected array $queryString = [
         'statusFilter' => ['except' => 'all'],
         'search' => ['except' => ''],
@@ -32,11 +33,15 @@ class SubmissionIndex extends Component
 
     public function mount(Form $form): void
     {
-        // Check if user can view submissions
         if (!Gate::allows('viewAny', [Submission::class, $form])) {
             abort(403);
         }
         $this->form = $form;
+        Log::info('SubmissionIndex mounted', [
+            'form_id' => $form->id,
+            'initial_status_filter' => $this->statusFilter,
+            'initial_search' => $this->search
+        ]);
     }
 
     public function sortBy(string $field): void
@@ -49,13 +54,15 @@ class SubmissionIndex extends Component
         }
     }
 
-    public function updatingSearch(): void
+    public function updatingSearch($value): void
     {
+        Log::info('Search updating', ['new_value' => $value]);
         $this->resetPage();
     }
 
-    public function updatingStatusFilter(): void
+    public function updatingStatusFilter($value): void
     {
+        Log::info('Status filter updating', ['new_value' => $value]);
         $this->resetPage();
     }
 
@@ -74,21 +81,27 @@ class SubmissionIndex extends Component
     public function render(): Factory|View|Application
     {
 
+        $query = $this->form->submissions()->with(['user', 'form']);
 
-        $submissions = $this->form->submissions()
-            ->when($this->statusFilter !== 'all', function ($query) {
-                $query->where('status', $this->statusFilter);
-            })
-            ->when(!$this->showCompleted, function ($query) {
-                $query->whereNotIn('status', ['completed']);
-            })
-            ->when($this->search, function ($query) {
-                $query->whereHas('user', function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('email', 'like', '%' . $this->search . '%');
-                });
-            })
-            ->with(['user', 'form']) // Eager load relationships
+        if ($this->statusFilter !== 'all') {
+            $query->where('status', $this->statusFilter);
+        }
+
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('id', 'like', '%' . $this->search . '%')
+                    ->orWhereHas('user', function($userQuery) {
+                        $userQuery->where('name', 'like', '%' . $this->search . '%')
+                            ->orWhere('email', 'like', '%' . $this->search . '%');
+                    });
+            });
+        }
+
+        if (!$this->showCompleted) {
+            $query->where('status', '!=', 'completed');
+        }
+
+        $submissions = $query
             ->orderBy($this->sortField, $this->sortDirection)
             ->paginate(10);
 
@@ -96,4 +109,5 @@ class SubmissionIndex extends Component
             'submissions' => $submissions,
         ]);
     }
+
 }
