@@ -8,33 +8,105 @@ use Exception;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
 
 class SubmissionForm extends Component
 {
     use WithFileUploads;
 
+    /**
+     * The form being submitted
+     */
     public Form $form;
-    public ?Submission $submission = null;
-    public array $fieldValues = [];
-    public array $tempFiles = [];
-    public int $currentStep = 1;
-    public $totalSteps;
-    public $steps = [];
-    public bool $isEditMode = false;
-    public $autoSaveInterval = 30000; // 30 seconds
 
+    /**
+     * The current submission instance
+     */
+    public ?Submission $submission = null;
+
+    /**
+     * Array of field values indexed by field ID
+     * @var array<int, mixed>
+     */
+    public array $fieldValues = [];
+
+    /**
+     * Array of temporary file uploads
+     * @var array<string, mixed>
+     */
+    public array $tempFiles = [];
+
+    /**
+     * Current step in the multi-step form
+     */
+    public int $currentStep = 1;
+
+    /**
+     * Total number of steps in the form
+     */
+    public int $totalSteps;
+
+    /**
+     * Array of step data
+     * @var array<int, array{name: string, description: string}>
+     */
+    public array $steps = [];
+
+    /**
+     * Whether the form is in edit mode
+     */
+    public bool $isEditMode = false;
+
+    /**
+     * Auto-save interval in milliseconds
+     */
+    public int $autoSaveInterval = 30000;
+
+    /**
+     * Maximum file size in KB
+     */
+    protected const MAX_FILE_SIZE = 10240;
+
+    /**
+     * Allowed file types
+     * @var array<string>
+     */
+    protected const ALLOWED_FILE_TYPES = ['jpeg','jpg','webp','svg','png', 'pdf', 'doc', 'docx', 'xls', 'xlsx','md'];
+
+    /**
+     * Event listeners
+     * @var array<string>
+     */
     protected $listeners = [
         'autosaveDraft',
         'updateSubmissionStatus'
     ];
 
+    /**
+     * Validation messages
+     * @var array<string, string>
+     */
+    protected $messages = [
+        'fieldValues.*.required' => 'This field is required.',
+        'tempFiles.*.max' => 'The file must not be larger than 10MB.',
+        'tempFiles.*.mimes' => 'The file must be a valid document type (jpeg, png, pdf, doc, docx, xls, xlsx).',
+    ];
+
+    /**
+     * Initialize the component
+     */
     public function mount(Form $form, ?Submission $submission = null, bool $isEditMode = false): void
     {
+        Log::info('Mounting SubmissionForm', [
+            'form_id' => $form->id,
+            'submission_id' => $submission?->id,
+            'is_edit_mode' => $isEditMode
+        ]);
+
         $this->form = $form->load([
             'categories' => fn($query) => $query->orderBy('order'),
             'categories.fields' => fn($query) => $query->orderBy('order')
@@ -43,8 +115,7 @@ class SubmissionForm extends Component
         $this->totalSteps = $this->form->categories->count();
         $this->isEditMode = $isEditMode;
 
-        // Prepare steps data for progress bar
-        $this->steps = $this->form->categories->map(function($category) {
+        $this->steps = $this->form->categories->map(function ($category) {
             return [
                 'name' => $category->name,
                 'description' => $category->description
@@ -59,7 +130,11 @@ class SubmissionForm extends Component
         }
     }
 
-    public function getCurrentStepDataProperty()
+    /**
+     * Get data for the current step
+     * @return array{name: string, description: string}
+     */
+    public function getCurrentStepDataProperty(): array
     {
         return $this->steps[$this->currentStep - 1] ?? [
             'name' => 'Step ' . $this->currentStep,
@@ -67,14 +142,40 @@ class SubmissionForm extends Component
         ];
     }
 
+    /**
+     * Get field labels for validation
+     * @return array<string, string>
+     */
+    protected function fieldLabels(): array
+    {
+        $labels = [];
+        foreach ($this->form->categories as $category) {
+            foreach ($category->fields as $field) {
+                $labels["fieldValues.{$field->id}"] = $field->label;
+                $labels["tempFiles.field_{$field->id}"] = $field->label;
+            }
+        }
+        return $labels;
+    }
+
+    /**
+     * Load values from an existing submission
+     */
     protected function loadSubmissionValues(): void
     {
+        if (!$this->submission) {
+            return;
+        }
+
         $this->submission->load('values');
         foreach ($this->submission->values as $value) {
             $this->fieldValues[$value->form_field_id] = $value->value;
         }
     }
 
+    /**
+     * Load existing draft or create new one
+     */
     protected function loadOrCreateDraft(): void
     {
         if (!auth()->check()) {
@@ -85,28 +186,90 @@ class SubmissionForm extends Component
             'form_id' => $this->form->id,
             'user_id' => auth()->id(),
         ])->whereIn('status', ['draft', 'ongoing'])
-            ->with('values')
+            ->orderBy('last_activity', 'desc')
             ->first();
 
         if ($this->submission) {
             $this->loadSubmissionValues();
+        } else {
+            $this->submission = new Submission([
+                'form_id' => $this->form->id,
+                'user_id' => auth()->id(),
+                'status' => 'draft',
+                'last_activity' => now(),
+            ]);
         }
     }
 
-    public function autosaveDraft(): void
+    /**
+     * Handle file upload updates
+     */
+    public function updatedTempFiles($value, $key): void
     {
-        $this->saveDraft(false);
+        $fieldId = str_replace('field_', '', $key);
+
+        try {
+            $path = $value->store('temp-submissions', 'private');
+            $this->fieldValues[$fieldId] = $path;
+            $this->dispatch('success', 'File uploaded successfully');
+        } catch (Exception $e) {
+            Log::error('File upload failed', [
+                'error' => $e->getMessage(),
+                'field_id' => $fieldId
+            ]);
+            $this->dispatch('error', 'Failed to upload file: ' . $e->getMessage());
+        }
     }
 
-    public function saveAsDraft(): void
+    /**
+     * Delete uploaded file
+     */
+    public function deleteFile(int $fieldId): void
     {
+        if (isset($this->fieldValues[$fieldId])) {
+            try {
+                Storage::disk('private')->delete($this->fieldValues[$fieldId]);
+                unset($this->fieldValues[$fieldId]);
+                $this->dispatch('success', 'File deleted successfully');
+            } catch (Exception $e) {
+                Log::error('File deletion failed', [
+                    'error' => $e->getMessage(),
+                    'field_id' => $fieldId
+                ]);
+                $this->dispatch('error', 'Failed to delete file: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Auto-save draft
+     * @throws Exception
+     */
+    public function autosaveDraft(): void
+    {
+        if (!auth()->check()) {
+            return;
+        }
         $this->saveDraft(true);
     }
 
     /**
+     * Save as draft
      * @throws Exception
      */
-    protected function saveDraft($showNotification = true): void
+    public function saveAsDraft(): void
+    {
+        if (!auth()->check()) {
+            return;
+        }
+        $this->saveDraft(true);
+    }
+
+    /**
+     * Save draft implementation
+     * @throws Exception
+     */
+    protected function saveDraft(bool $showNotification = true): void
     {
         if (!auth()->check()) {
             $this->dispatch('error', 'You must be logged in to save drafts.');
@@ -114,151 +277,71 @@ class SubmissionForm extends Component
         }
 
         try {
-            \DB::beginTransaction();
+            DB::beginTransaction();
 
-            logger()->debug('Starting saveDraft', [
-                'submission_exists' => isset($this->submission),
-                'submission_is_null' => is_null($this->submission),
-                'form_id' => $this->form->id,
-                'user_id' => auth()->id(),
-                'field_values' => $this->fieldValues
-            ]);
-
-            // Changed condition to explicitly check for null
-            if (is_null($this->submission)) {
-                $this->submission = new Submission([
-                    'form_id' => $this->form->id,
-                    'user_id' => auth()->id(),
-                    'status' => 'draft',
-                    'last_activity' => now(),
-                ]);
+            if (!$this->submission->exists) {
+                $this->submission->form_id = $this->form->id;
+                $this->submission->user_id = auth()->id();
+                $this->submission->status = 'draft';
                 $this->submission->save();
 
-                logger()->debug('Created new submission', [
-                    'new_submission_id' => $this->submission->id
+                Log::info('New draft created', [
+                    'submission_id' => $this->submission->id,
+                    'form_id' => $this->form->id
                 ]);
-            } else if ($this->submission->id) {
-                // Only try to update if we have a valid ID
-                $this->submission = Submission::find($this->submission->id);
-                if ($this->submission) {
-                    $this->submission->update([
-                        'status' => 'draft',
-                        'last_activity' => now(),
-                    ]);
-
-                    logger()->debug('Updated existing submission', [
-                        'updated_submission_id' => $this->submission->id
-                    ]);
-                } else {
-                    // If we can't find the submission, create a new one
-                    $this->submission = new Submission([
-                        'form_id' => $this->form->id,
-                        'user_id' => auth()->id(),
-                        'status' => 'draft',
-                        'last_activity' => now(),
-                    ]);
-                    $this->submission->save();
-                }
             } else {
-                // If we have a submission object but no ID, create a new one
-                $this->submission = new Submission([
-                    'form_id' => $this->form->id,
-                    'user_id' => auth()->id(),
+                $this->submission->update([
                     'status' => 'draft',
-                    'last_activity' => now(),
+                    'last_activity' => now()
                 ]);
-                $this->submission->save();
-            }
 
-            // Ensure we have a valid submission before proceeding
-            if (!$this->submission->id) {
-                throw new \RuntimeException('Failed to create/load submission');
+                Log::info('Draft updated', [
+                    'submission_id' => $this->submission->id
+                ]);
             }
 
             $this->saveValues();
-
-            \DB::commit();
+            DB::commit();
 
             if ($showNotification) {
-                $this->dispatch('draft-saved');
+                $this->dispatch('success', 'Draft saved successfully');
             }
-
-        } catch (\Exception $e) {
-            \DB::rollBack();
-            logger()->error('Failed to save draft', [
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Draft save failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'submission_state' => [
-                    'exists' => isset($this->submission),
-                    'is_null' => is_null($this->submission),
-                    'id' => $this->submission->id ?? null
-                ]
+                'submission_id' => $this->submission?->id
             ]);
-            $this->dispatch('error', 'Failed to save draft: ' . $e->getMessage());
             throw $e;
         }
     }
 
-        /**
-     * @throws Exception
+    /**
+     * Save field values
      */
     protected function saveValues(): void
     {
-        logger()->debug('Starting saveValues', [
-            'submission_exists' => isset($this->submission),
-            'submission_id' => $this->submission->id ?? null,
-            'field_values_count' => count($this->fieldValues)
-        ]);
-
-        if (!$this->submission || !$this->submission->id) {
-            throw new \RuntimeException('Cannot save values without a valid submission');
-        }
-
         foreach ($this->fieldValues as $fieldId => $value) {
-            try {
-                $result = $this->submission->values()->updateOrCreate(
-                    [
-                        'form_field_id' => $fieldId,
-                        'submission_id' => $this->submission->id
-                    ],
-                    ['value' => $value]
-                );
-
-                logger()->debug('Saved field value', [
-                    'field_id' => $fieldId,
-                    'submission_id' => $this->submission->id,
-                    'success' => true
-                ]);
-            } catch (\Exception $e) {
-                logger()->error('Failed to save field value', [
-                    'field_id' => $fieldId,
-                    'submission_id' => $this->submission->id,
-                    'error' => $e->getMessage()
-                ]);
-                throw $e;
-            }
+            $this->submission->values()->updateOrCreate(
+                ['form_field_id' => $fieldId],
+                ['value' => $value]
+            );
         }
     }
 
-    public function hydrate(): void
-    {
-        if ($this->submission) {
-            logger()->debug('Hydrating component', [
-                'submission_id' => $this->submission->id,
-                'field_values_count' => count($this->fieldValues)
-            ]);
-        }
-    }
-
+    /**
+     * Move to next step
+     */
     public function nextStep(): void
     {
-        $this->validateCurrentStep();
         if ($this->currentStep < $this->totalSteps) {
             $this->currentStep++;
-            $this->saveDraft(false);
         }
     }
 
+    /**
+     * Move to previous step
+     */
     public function previousStep(): void
     {
         if ($this->currentStep > 1) {
@@ -266,155 +349,109 @@ class SubmissionForm extends Component
         }
     }
 
-    public function validateCurrentStep(): void
+    /**
+     * Handle form submission
+     * @throws Exception
+     */
+    public function submit(): void
     {
-        $currentCategory = $this->form->categories[$this->currentStep - 1];
-        $rules = [];
-
-        foreach ($currentCategory->fields as $field) {
-            if ($field->required) {
-                $rules["fieldValues.{$field->id}"] = 'required';
-                if ($field->type === 'file') {
-                    if (!isset($this->fieldValues[$field->id]) || empty($this->fieldValues[$field->id])) {
-                        $rules["tempFiles.field_{$field->id}"] = 'required|file|max:10240|mimes:jpeg,png,pdf,doc,docx,xls,xlsx';
-                    }
-                }
-            }
-        }
-
-        $this->validate($rules);
-    }
-
-    public function submit(): void  // Changed return type to void
-    {
-        $this->validateCurrentStep();
-        $this->validateAllSteps();
-
-        if ($this->submission) {
-            $this->handleFileUploads();
-
-            $this->submission->update([
-                'status' => 'submitted',
-                'last_activity' => now(),
-                'status_metadata' => [
-                    'submitted_at' => now(),
-                    'submission_ip' => request()->ip(),
-                    'completion_time' => $this->submission->created_at->diffInMinutes(now()),
-                    'edited' => $this->isEditMode,
-                ]
-            ]);
-
-            $this->redirect(route('submissions.thankyou')); // Changed to Livewire's redirect
-        }
-    }
-
-    public function validateAllSteps(): void
-    {
-        $rules = [];
-        foreach ($this->form->categories as $category) {
-            foreach ($category->fields as $field) {
-                if ($field->required) {
-                    $rules["fieldValues.{$field->id}"] = 'required';
-                    if ($field->type === 'file') {
-                        if (!isset($this->fieldValues[$field->id]) || empty($this->fieldValues[$field->id])) {
-                            $rules["tempFiles.field_{$field->id}"] = 'required|file|max:10240|mimes:jpeg,png,pdf,doc,docx,xls,xlsx';
-                        }
-                    }
-                }
-            }
-        }
-
-        $this->validate($rules);
-    }
-
-    public function updatedTempFiles($value, $key): void
-    {
-        $fieldId = str_replace('field_', '', $key);
+        $this->validate($this->rules(), [], $this->fieldLabels());
 
         try {
-            // Store the new temporary file
-            $path = $value->store("temp-submissions/{$this->submission->id}", 'private');
+            DB::beginTransaction();
 
-            // Delete old file if it exists
-            if (isset($this->fieldValues[$fieldId])) {
-                $oldPath = $this->fieldValues[$fieldId];
-                if (Storage::disk('private')->exists($oldPath)) {
-                    Storage::disk('private')->delete($oldPath);
+            // Create new submission for non-authenticated users or if no draft exists
+            if (!$this->submission || !$this->submission->exists) {
+                $this->submission = new Submission([
+                    'form_id' => $this->form->id,
+                    'status' => 'submitted',
+                    'last_activity' => now(),
+                ]);
+
+                if (auth()->check()) {
+                    $this->submission->user_id = auth()->id();
                 }
+
+                $this->submission->save();
+            } else {
+                // Update existing submission (e.g., from draft)
+                $this->submission->update([
+                    'status' => 'submitted',
+                    'last_activity' => now(),
+                ]);
             }
 
-            // Update the field value with the new path
-            $this->fieldValues[$fieldId] = $path;
+            $this->handleFileUploads();
+            $this->saveValues();
 
-            // If we have a submission, update the value immediately
-            if ($this->submission) {
-                $this->submission->values()->updateOrCreate(
-                    ['form_field_id' => $fieldId],
-                    ['value' => $path]
-                );
-            }
+            DB::commit();
 
-            $this->dispatch('success', 'File uploaded successfully');
-        } catch (\Exception $e) {
-            logger()->error('File upload failed', [
+            $this->redirect(route('forms.user_index'));
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Submission failed', [
                 'error' => $e->getMessage(),
-                'field_id' => $fieldId
+                'submission_id' => $this->submission?->id ?? null,
+                'authenticated' => auth()->check()
             ]);
-            $this->dispatch('error', 'File upload failed: ' . $e->getMessage());
+            throw $e;
         }
     }
 
-    public function deleteFile($fieldId): void
-    {
-        if (!isset($this->fieldValues[$fieldId])) {
-            return;
-        }
-
-        $value = $this->fieldValues[$fieldId];
-
-        if (Storage::disk('private')->exists($value)) {
-            Storage::disk('private')->delete($value);
-        }
-
-        unset($this->fieldValues[$fieldId]);
-
-        if ($this->submission) {
-            $this->submission->values()
-                ->where('form_field_id', $fieldId)
-                ->delete();
-        }
-
-        $this->dispatch('success', 'File deleted successfully');
-    }
-
+    /**
+     * Handle permanent file storage after submission
+     */
     protected function handleFileUploads(): void
     {
-        if (!$this->submission) {
-            return;
-        }
-
         foreach ($this->fieldValues as $fieldId => $value) {
-            // Only process paths that start with temp-submissions
-            if (str_starts_with($value, 'temp-submissions/') && Storage::disk('private')->exists($value)) {
+            if (str_starts_with($value, 'temp-submissions/')) {
                 $newPath = "submissions/{$this->submission->id}/" . basename($value);
-
-                // Create directory if it doesn't exist
-                Storage::disk('private')->makeDirectory("submissions/{$this->submission->id}");
-
-                // Move file from temp to permanent location
                 Storage::disk('private')->move($value, $newPath);
 
-                $this->submission->values()
-                    ->updateOrCreate(
-                        ['form_field_id' => $fieldId],
-                        ['value' => $newPath]
-                    );
+                $this->submission->values()->updateOrCreate(
+                    ['form_field_id' => $fieldId],
+                    ['value' => $newPath]
+                );
 
                 $this->fieldValues[$fieldId] = $newPath;
             }
         }
     }
 
+    /**
+     * Get all validation rules
+     * @return array<string, string>
+     */
+    public function rules(): array
+    {
+        $rules = [];
+
+        foreach ($this->form->categories as $category) {
+            foreach ($category->fields as $field) {
+                if ($field->required) {
+                    $rules["fieldValues.{$field->id}"] = 'required';
+                }
+
+                if (!empty($field->char_limit)) {
+                    $rules["fieldValues.{$field->id}"] = "nullable|string|max:{$field->char_limit}";
+                }
+
+                if ($field->type === 'file') {
+                    $rules["tempFiles.field_{$field->id}"] = sprintf(
+                        'nullable|file|max:%d|mimes:%s',
+                        self::MAX_FILE_SIZE,
+                        implode(',', self::ALLOWED_FILE_TYPES)
+                    );
+                }
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Render the component
+     */
     public function render(): View|Factory|Application
     {
         return view('livewire.submission-form');

@@ -4,8 +4,8 @@
         <div class="flex-1 min-w-0">
             <div class="relative rounded-md shadow-sm">
                 <input type="text"
-                       wire:model.debounce.300ms="search"
-                       class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 pr-10 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                       wire:model.live.debounce.300ms="search"
+                       class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 pr-10 dark:text-gray-300 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                        placeholder="Search submissions...">
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                     <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -17,8 +17,8 @@
 
         <!-- Status Filter -->
         <div class="flex-shrink-0">
-            <select wire:model="statusFilter"
-                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500">
+            <select wire:model.live="statusFilter"
+                    class="rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-sm dark:text-gray-300 focus:ring-blue-500 focus:border-blue-500">
                 <option value="all">All Submissions</option>
                 <option value="draft">Drafts</option>
                 <option value="ongoing">In Progress</option>
