@@ -47,6 +47,7 @@ class FormAccessController extends Controller
      */
     public function createAccessLink(Request $request, Form $form): RedirectResponse
     {
+
         $this->authorize('assignUsers', $form);
 
         $validatedData = $request->validate([
@@ -58,7 +59,8 @@ class FormAccessController extends Controller
             'expires_at' => $validatedData['expires_at'] ?? null,
         ]);
 
-        return redirect()->route('forms.edit', $form)->with('success', 'Access link created successfully.');
+        return redirect()->route('forms.edit', $form)
+            ->with('success', 'Access link created successfully.');
     }
 
     /**
@@ -66,26 +68,34 @@ class FormAccessController extends Controller
      */
     public function deleteAccessLink(FormAccessLink $accessLink): RedirectResponse
     {
-        $this->authorize('appointUsers', $accessLink->form);
+        $this->authorize('delete', $accessLink);
+
+        // Get the form ID before deleting the link
+        $formId = $accessLink->form_id;
 
         $accessLink->delete();
 
-        return redirect()->route('forms.edit', $accessLink->form)->with('success', 'Access link deleted successfully.');
+        // Clear any existing sessions using this access link
+        \Session::getHandler()->destroy('form_access_' . $formId);
+
+        return redirect()->route('forms.edit', $accessLink->form)
+            ->with('success', 'Access link deleted successfully.');
     }
 
     public function accessForm(Request $request, $token): RedirectResponse
     {
-        $accessLink = FormAccessLink::where('token', $token)
-            ->where(function ($query) {
-                $query->whereNull('expires_at')
-                    ->orWhere('expires_at', '>', now());
-            })
-            ->firstOrFail();
+        $accessLink = FormAccessLink::findValidByToken($token);
 
-        // Grant access to the form
-        $request->session()->put('form_access_' . $accessLink->form_id, true);
+        if (!$accessLink) {
+            return redirect()->route('home')->with('error', 'This access link is invalid or has expired.');
+        }
 
-        // Redirect to the form submission page instead of the show route
+        // Store both the token and expiry time in the session
+        $request->session()->put('form_access_' . $accessLink->form_id, [
+            'token' => $token,
+            'expires_at' => $accessLink->expires_at?->timestamp
+        ]);
+
         return redirect()->route('submissions.create', $accessLink->form);
     }
 

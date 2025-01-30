@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Form;
 use App\Models\Submission;
+use Exception;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -19,7 +20,7 @@ class SubmissionController extends Controller
     use AuthorizesRequests;
 
     /**
-     * @throws \Exception
+     * @throws Exception
      */
     public function show(Form $form): View|Factory|Application
     {
@@ -49,7 +50,7 @@ class SubmissionController extends Controller
                 'form' => $form,
                 'draftSubmission' => $draftSubmission
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             \Log::error('Error in show method', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -275,7 +276,7 @@ class SubmissionController extends Controller
             return redirect()->route('submissions.user.index')
                 ->with('success', 'Submission deleted successfully.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             \DB::rollBack();
             logger()->error('Failed to delete submission', [
                 'submission_id' => $submission->id,
