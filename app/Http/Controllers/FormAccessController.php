@@ -87,7 +87,7 @@ class FormAccessController extends Controller
         $accessLink = FormAccessLink::findValidByToken($token);
 
         if (!$accessLink) {
-            return redirect()->route('home')->with('error', 'This access link is invalid or has expired.');
+            return redirect()->route('homepage')->with('error', 'This access link is invalid or has expired.');
         }
 
         // Store both the token and expiry time in the session
