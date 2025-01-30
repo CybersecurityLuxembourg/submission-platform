@@ -1,14 +1,14 @@
 FROM node:20-alpine AS node-builder
-
-ENV http_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTP_PROXY="http://proxy.lc1.conostix.com:3128" \
-    https_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
 
 # Configure npm to use proxy
-RUN npm config set proxy http://proxy.lc1.conostix.com:3128 \
-    && npm config set https-proxy http://proxy.lc1.conostix.com:3128 \
-    && npm config set registry https://registry.npmjs.org/
+RUN npm config set proxy $PROXY \
+    && npm config set https-proxy $PROXY \
+    && npm config set registry $PROXY
 # Set working directory
 WORKDIR /app
 
@@ -32,10 +32,11 @@ RUN NODE_ENV=production npm run build
 
 # Stage 2: Install PHP dependencies with Composer
 FROM composer:2 AS composer-builder
-ENV http_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTP_PROXY="http://proxy.lc1.conostix.com:3128" \
-    https_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
 
 WORKDIR /app
 
@@ -59,11 +60,11 @@ RUN composer run-script post-autoload-dump
 
 # Stage 3: Production image
 FROM php:8.3-fpm-alpine
-
-ENV http_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTP_PROXY="http://proxy.lc1.conostix.com:3128" \
-    https_proxy="http://proxy.lc1.conostix.com:3128" \
-    HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
 
 WORKDIR /var/www/html
 
