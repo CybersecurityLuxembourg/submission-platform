@@ -57,7 +57,7 @@ jobs:
           APP_NAME="NC3's Application Platform"
           APP_ENV=production
           APP_KEY=${{ secrets.APP_KEY_TEST }}
-          APP_DEBUG=false
+          APP_DEBUG=true
           APP_URL=https://test.applications.nc3.lu
           APP_LOCALE=en
           APP_FALLBACK_LOCALE=en
@@ -113,7 +113,10 @@ jobs:
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
           EOL
           chmod 644 docker-compose.env
-
+          # Try pulling images explicitly first
+          docker pull composer:2
+          docker pull node:20-alpine
+          docker pull php:8.3-fpm-alpine
           # Extract build artifacts and deploy
           unzip -o build_artifacts.zip
           chmod +x scripts/deploy.sh

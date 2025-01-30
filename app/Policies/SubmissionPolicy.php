@@ -63,7 +63,22 @@ class SubmissionPolicy
 
         return false;
     }
+    public function viewAny(User $user, Form $form): bool
+    {
+        // Admin or form owner can view all submissions
+        if ($user->isAdmin() || $user->id === $form->user_id) {
+            return true;
+        }
 
+        // Evaluators must be appointed to view
+        if (in_array($user->role, ['internal_evaluator', 'external_evaluator'])) {
+            return $form->appointedUsers()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        return false;
+    }
     public function review(User $user, Submission $submission): bool
     {
         // Only reviewable if under review
