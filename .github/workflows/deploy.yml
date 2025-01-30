@@ -106,6 +106,7 @@ jobs:
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          PROXY=${{ secrets.PROXY }}
           EOL
           chmod 644 docker-compose.env
 

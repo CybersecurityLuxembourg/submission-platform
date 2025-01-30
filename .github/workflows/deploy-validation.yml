@@ -45,10 +45,10 @@ jobs:
         run: |
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} "bash -s" << 'ENDSSH'
 
-          export http_proxy="http://proxy.lc1.conostix.com:3128"
-          export https_proxy="http://proxy.lc1.conostix.com:3128"
-          export HTTP_PROXY="http://proxy.lc1.conostix.com:3128"
-          export HTTPS_PROXY="http://proxy.lc1.conostix.com:3128"
+          export http_proxy="${{ secrets.PROXY }}"
+          export https_proxy="${{ secrets.PROXY }}"
+          export HTTP_PROXY="${{ secrets.PROXY }}"
+          export HTTPS_PROXY="${{ secrets.PROXY }}"
           cd /var/www/test.applications.nc3.lu
 
 
@@ -111,6 +111,7 @@ jobs:
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          PROXY=${{ secrets.PROXY }}
           EOL
           chmod 644 docker-compose.env
           # Try pulling images explicitly first
