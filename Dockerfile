@@ -8,7 +8,7 @@ ENV http_proxy=$PROXY \
 # Configure npm to use proxy
 RUN npm config set proxy $PROXY \
     && npm config set https-proxy $PROXY \
-    && npm config set registry $PROXY
+    && npm config set registry https://registry.npmjs.org/
 # Set working directory
 WORKDIR /app
 
