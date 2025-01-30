@@ -26,6 +26,21 @@ class FormAccessLink extends Model
 
     public function isValid(): bool
     {
-        return $this->expires_at === null || $this->expires_at->isFuture();
+        // Check if the link has an expiration date and if it's in the future
+        if ($this->expires_at === null) {
+            return true;
+        }
+
+        return $this->expires_at->isFuture();
+    }
+
+    public static function findValidByToken(string $token): ?self
+    {
+        return static::where('token', $token)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->first();
     }
 }
