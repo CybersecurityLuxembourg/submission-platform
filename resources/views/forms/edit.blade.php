@@ -158,7 +158,7 @@
         </div>
 
         <div class="mt-8 mb-8  bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Access Links (Work in Progress not working)</h3>
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Access Links</h3>
             <form action="{{ route('forms.create-access-link', $form) }}" method="POST" class="mb-6">
                 @csrf
                 <div class="mb-4">
