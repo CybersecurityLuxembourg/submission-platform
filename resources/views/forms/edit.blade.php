@@ -158,17 +158,17 @@
         </div>
 
         <div class="mt-8 mb-8  bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Access Links (Work in Progress not working)</h3>
+            <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Access Links</h3>
             <form action="{{ route('forms.create-access-link', $form) }}" method="POST" class="mb-6">
                 @csrf
                 <div class="mb-4">
                     <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">
                         Expiration Date (optional)
                     </label>
-                    <input type="datetime-local" name="expires_at" disabled
+                    <input type="datetime-local" name="expires_at"
                            class="w-full mt-1 p-2 border rounded-md bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:ring-blue-500 focus:border-blue-500">
                 </div>
-                <button type="submit" disabled
+                <button type="submit"
                         class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
                     Create Access Link
                 </button>

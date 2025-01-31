@@ -25,6 +25,10 @@ class FormController extends Controller
 
         return view('forms.public-index', compact('forms'));
     }
+
+    /**
+     * @throws AuthorizationException
+     */
     public function userIndex(): View|Factory|Application
     {
         $this->authorize('create', Form::class);
