@@ -62,6 +62,16 @@
             font-style: italic;
         }
 
+        /* Bullet point styling */
+        ul {
+            padding-left: 20px;
+            margin: 8px 0;
+        }
+        
+        li {
+            margin-bottom: 4px;
+        }
+
         .field {
             margin-bottom: 15px;
             padding-left: 10px;
@@ -138,7 +148,7 @@
         <div class="category-name">{{ $category['name'] }}</div>
 
         @if($category['description'])
-            <div class="category-description">{{ $category['description'] }}</div>
+            <div class="category-description">{!! \App\Helpers\MarkdownHelper::toHtml($category['description']) !!}</div>
         @endif
 
         @foreach($category['fields'] as $field)

@@ -16,6 +16,16 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class FormController extends Controller
 {
     use AuthorizesRequests;
+
+    public function index(Request $request): View|Factory|Application
+    {
+        $forms = Form::where('status', 'published')
+            ->whereIn('visibility', ['public', 'authenticated'])
+            ->latest()
+            ->paginate(10);
+
+        return view('index', compact('forms'));
+    }
     public function publicIndex(Request $request): View|Factory|Application
     {
         $forms = Form::where('status', 'published')

@@ -128,6 +128,8 @@ class SubmissionForm extends Component
         } else {
             $this->loadOrCreateDraft();
         }
+
+        $this->processCheckboxValues();
     }
 
     /**
@@ -168,8 +170,23 @@ class SubmissionForm extends Component
         }
 
         $this->submission->load('values');
+        
         foreach ($this->submission->values as $value) {
-            $this->fieldValues[$value->form_field_id] = $value->value;
+            $field = $this->form->fields->find($value->form_field_id);
+            
+            if ($field && $field->type === 'checkbox') {
+                // Convert stored comma-separated values back to array format for checkboxes
+                $options = array_map('trim', explode(',', $field->options));
+                $selectedValues = array_map('trim', explode(',', $value->value));
+                
+                $this->fieldValues[$field->id] = [];
+                
+                foreach ($options as $index => $option) {
+                    $this->fieldValues[$field->id][$index] = in_array($option, $selectedValues);
+                }
+            } else {
+                $this->fieldValues[$value->form_field_id] = $value->value;
+            }
         }
     }
 
@@ -266,61 +283,80 @@ class SubmissionForm extends Component
     }
 
     /**
-     * Save draft implementation
-     * @throws Exception
+     * Save the current submission as a draft
+     *
+     * @param bool $showNotification Whether to show a success notification
      */
     protected function saveDraft(bool $showNotification = true): void
     {
-        if (!auth()->check()) {
-            $this->dispatch('error', 'You must be logged in to save drafts.');
-            return;
-        }
-
         try {
             DB::beginTransaction();
 
             if (!$this->submission->exists) {
                 $this->submission->form_id = $this->form->id;
-                $this->submission->user_id = auth()->id();
                 $this->submission->status = 'draft';
-                $this->submission->save();
+                $this->submission->last_activity = now();
 
-                Log::info('New draft created', [
-                    'submission_id' => $this->submission->id,
-                    'form_id' => $this->form->id
-                ]);
+                if (auth()->check()) {
+                    $this->submission->user_id = auth()->id();
+                }
+
+                $this->submission->save();
             } else {
                 $this->submission->update([
-                    'status' => 'draft',
-                    'last_activity' => now()
-                ]);
-
-                Log::info('Draft updated', [
-                    'submission_id' => $this->submission->id
+                    'last_activity' => now(),
                 ]);
             }
 
+            $this->handleFileUploads();
+            
+            // Process checkbox values before saving the draft
+            $this->processCheckboxValues();
+            
             $this->saveValues();
+
             DB::commit();
 
             if ($showNotification) {
-                $this->dispatch('success', 'Draft saved successfully');
+                $this->dispatch('success', 'Draft saved');
             }
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Draft save failed', [
                 'error' => $e->getMessage(),
-                'submission_id' => $this->submission?->id
             ]);
-            throw $e;
         }
     }
 
     /**
-     * Save field values
+     * Process and format any checkbox values before saving
+     */
+    protected function processCheckboxValues(): void
+    {
+        $this->form->categories->each(function ($category) {
+            $category->fields->where('type', 'checkbox')->each(function ($field) {
+                if (isset($this->fieldValues[$field->id]) && is_array($this->fieldValues[$field->id])) {
+                    // Convert checkbox array to a comma-separated string of selected values
+                    $selectedOptions = [];
+                    foreach ($this->fieldValues[$field->id] as $index => $value) {
+                        if ($value) {
+                            $options = explode(',', $field->options);
+                            $selectedOptions[] = trim($options[$index]);
+                        }
+                    }
+                    $this->fieldValues[$field->id] = !empty($selectedOptions) ? implode(', ', $selectedOptions) : null;
+                }
+            });
+        });
+    }
+
+    /**
+     * Save form field values to the database
      */
     protected function saveValues(): void
     {
+        $this->processCheckboxValues();
+        
         foreach ($this->fieldValues as $fieldId => $value) {
             $this->submission->values()->updateOrCreate(
                 ['form_field_id' => $fieldId],
@@ -382,6 +418,10 @@ class SubmissionForm extends Component
             }
 
             $this->handleFileUploads();
+            
+            // Process checkbox values before final submission
+            $this->processCheckboxValues();
+            
             $this->saveValues();
 
             DB::commit();

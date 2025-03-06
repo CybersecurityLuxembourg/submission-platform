@@ -89,6 +89,16 @@ class Form extends Model
         return false;
     }
 
+// Add this relationship method to your Form model
+    public function workflow()
+    {
+        return $this->hasOne(Workflow::class);
+    }
 
+// You may also want to add a workflows relationship if you plan to support multiple workflows per form
+    public function workflows()
+    {
+        return $this->hasMany(Workflow::class);
+    }
 
 }

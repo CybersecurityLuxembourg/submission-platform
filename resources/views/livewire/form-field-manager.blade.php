@@ -70,9 +70,26 @@
                         <label for="field-content" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             {{ ucfirst($newField['type']) }} Content
                         </label>
+                        @if($newField['type'] === 'description')
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                You can use markdown formatting: **bold**, *italic*, and bullet points (start line with "- ").
+                            </p>
+                        @endif
                         <textarea id="field-content" wire:model.live="newField.content" rows="3"
                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
                         @error('newField.content') <span class="text-red-600 text-sm">{{ $message }}</span> @enderror
+                        
+                        @if($newField['type'] === 'description' && $newField['content'])
+                            <div class="mt-4">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</label>
+                                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                                    {!! \App\Helpers\MarkdownHelper::toHtml($newField['content']) !!}
+                                </div>
+                                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    You can use **bold**, *italic*, and bullet points (start line with "- ") for formatting.
+                                </p>
+                            </div>
+                        @endif
                     </div>
                 @else
                     <div class="mt-6">
@@ -352,12 +369,29 @@
 
                             @if(in_array($fieldBeingEdited['type'], ['header', 'description']))
                                 <div class="mb-4">
-                                    <label for="edit-field-content" class="block text-sm font-medium text-gray-700">Content</label>
-                                    <textarea id="edit-field-content" wire:model.defer="fieldBeingEdited.content"
+                                    <label for="edit-field-content" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
+                                    @if($fieldBeingEdited['type'] === 'description')
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                            You can use markdown formatting: **bold**, *italic*, and bullet points (start line with "- ").
+                                        </p>
+                                    @endif
+                                    <textarea id="edit-field-content" wire:model.live="fieldBeingEdited.content"
                                               rows="3"
-                                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"></textarea>
+                                              class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
                                     @error('fieldBeingEdited.content') <span
                                         class="text-red-600 text-sm">{{ $message }}</span> @enderror
+                                        
+                                    @if($fieldBeingEdited['type'] === 'description' && $fieldBeingEdited['content'])
+                                        <div class="mt-4">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</label>
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                                                {!! \App\Helpers\MarkdownHelper::toHtml($fieldBeingEdited['content']) !!}
+                                            </div>
+                                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                You can use **bold**, *italic*, and bullet points (start line with "- ") for formatting.
+                                            </p>
+                                        </div>
+                                    @endif
                                 </div>
                             @else
                                 <div class="mb-4">

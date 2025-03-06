@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('submissions', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->change();
+        Schema::create('workflow_assignment_templates', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('workflow_step_template_id')->constrained()->onDelete('cascade');
+            $table->json('config')->nullable();
+            $table->timestamps();
         });
     }
 
@@ -21,8 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('submissions', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable(false)->change();
-        });
+        Schema::dropIfExists('workflow_assignments');
     }
 };

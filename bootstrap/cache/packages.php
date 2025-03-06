@@ -164,13 +164,20 @@
   ),
   'ryangjchandler/blade-capture-directive' => 
   array (
+    'aliases' => 
+    array (
+      'BladeCaptureDirective' => 'RyanChandler\\BladeCaptureDirective\\Facades\\BladeCaptureDirective',
+    ),
     'providers' => 
     array (
       0 => 'RyanChandler\\BladeCaptureDirective\\BladeCaptureDirectiveServiceProvider',
     ),
-    'aliases' => 
+  ),
+  'spatie/laravel-permission' => 
+  array (
+    'providers' => 
     array (
-      'BladeCaptureDirective' => 'RyanChandler\\BladeCaptureDirective\\Facades\\BladeCaptureDirective',
+      0 => 'Spatie\\Permission\\PermissionServiceProvider',
     ),
   ),
 );

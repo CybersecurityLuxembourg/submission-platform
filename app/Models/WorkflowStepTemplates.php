@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Workflow extends Model
+class WorkflowStepTemplates extends Model
 {
     //
 }
