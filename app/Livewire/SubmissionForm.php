@@ -128,8 +128,9 @@ class SubmissionForm extends Component
         } else {
             $this->loadOrCreateDraft();
         }
-
-        $this->processCheckboxValues();
+        
+        // We don't need to process checkbox values here as it would convert arrays back to strings
+        // which breaks the UI state for checkboxes
     }
 
     /**
@@ -172,11 +173,43 @@ class SubmissionForm extends Component
         $this->submission->load('values');
         
         foreach ($this->submission->values as $value) {
-            $field = $this->form->fields->find($value->form_field_id);
+            $field = null;
             
-            if ($field && $field->type === 'checkbox') {
+            // Find the field across all categories
+            foreach ($this->form->categories as $category) {
+                $foundField = $category->fields->firstWhere('id', $value->form_field_id);
+                if ($foundField) {
+                    $field = $foundField;
+                    break;
+                }
+            }
+            
+            if (!$field) {
+                // Field not found, skip this value
+                Log::warning('Field not found when loading submission values', [
+                    'form_field_id' => $value->form_field_id,
+                    'submission_id' => $this->submission->id
+                ]);
+                continue;
+            }
+            
+            if ($field->type === 'checkbox') {
+                // Log the values for debugging
+                Log::info('Loading checkbox values', [
+                    'field_id' => $field->id,
+                    'field_options' => $field->options,
+                    'stored_value' => $value->value
+                ]);
+                
                 // Convert stored comma-separated values back to array format for checkboxes
                 $options = array_map('trim', explode(',', $field->options));
+                
+                // Handle empty values
+                if (empty($value->value)) {
+                    $this->fieldValues[$field->id] = array_fill(0, count($options), false);
+                    continue;
+                }
+                
                 $selectedValues = array_map('trim', explode(',', $value->value));
                 
                 $this->fieldValues[$field->id] = [];
@@ -184,6 +217,12 @@ class SubmissionForm extends Component
                 foreach ($options as $index => $option) {
                     $this->fieldValues[$field->id][$index] = in_array($option, $selectedValues);
                 }
+                
+                // Log the resulting array for debugging
+                Log::info('Checkbox array created', [
+                    'field_id' => $field->id,
+                    'result' => $this->fieldValues[$field->id]
+                ]);
             } else {
                 $this->fieldValues[$value->form_field_id] = $value->value;
             }
@@ -307,13 +346,66 @@ class SubmissionForm extends Component
                     'last_activity' => now(),
                 ]);
             }
-
+            
+            // Deep clone the fieldValues to avoid reference issues
+            $originalFieldValues = [];
+            foreach ($this->fieldValues as $key => $value) {
+                if (is_array($value)) {
+                    $originalFieldValues[$key] = array_merge([], $value);
+                } else {
+                    $originalFieldValues[$key] = $value;
+                }
+            }
+            
+            // Save checkbox values as they are (they're already arrays in the UI)
+            foreach ($this->fieldValues as $fieldId => $value) {
+                if (is_array($value)) {
+                    // This is likely a checkbox field, preserve the array values in the session
+                    // but store a string representation in the database
+                    
+                    // Get the field to access its options
+                    $field = null;
+                    foreach ($this->form->categories as $category) {
+                        $foundField = $category->fields->firstWhere('id', $fieldId);
+                        if ($foundField && $foundField->type === 'checkbox') {
+                            $field = $foundField;
+                            break;
+                        }
+                    }
+                    
+                    if ($field) {
+                        // Convert the checkbox array to a readable string for storage
+                        $selectedOptions = [];
+                        $options = explode(',', $field->options);
+                        
+                        foreach ($value as $index => $isChecked) {
+                            if ($isChecked && isset($options[$index])) {
+                                $selectedOptions[] = trim($options[$index]);
+                            }
+                        }
+                        
+                        $valueForStorage = !empty($selectedOptions) ? implode(', ', $selectedOptions) : null;
+                        
+                        // Store the string representation in the database
+                        $this->submission->values()->updateOrCreate(
+                            ['form_field_id' => $fieldId],
+                            ['value' => $valueForStorage]
+                        );
+                    }
+                } else {
+                    // For non-array values, store as is
+                    $this->submission->values()->updateOrCreate(
+                        ['form_field_id' => $fieldId],
+                        ['value' => $value]
+                    );
+                }
+            }
+            
+            // Handle any file uploads
             $this->handleFileUploads();
             
-            // Process checkbox values before saving the draft
-            $this->processCheckboxValues();
-            
-            $this->saveValues();
+            // Keep the array representation in the UI
+            $this->fieldValues = $originalFieldValues;
 
             DB::commit();
 
@@ -324,6 +416,7 @@ class SubmissionForm extends Component
             DB::rollBack();
             Log::error('Draft save failed', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -416,23 +509,62 @@ class SubmissionForm extends Component
                     'last_activity' => now(),
                 ]);
             }
-
+            
+            // Save checkbox values as they are (they're already arrays in the UI)
+            foreach ($this->fieldValues as $fieldId => $value) {
+                if (is_array($value)) {
+                    // This is likely a checkbox field
+                    // Get the field to access its options
+                    $field = null;
+                    foreach ($this->form->categories as $category) {
+                        $foundField = $category->fields->firstWhere('id', $fieldId);
+                        if ($foundField && $foundField->type === 'checkbox') {
+                            $field = $foundField;
+                            break;
+                        }
+                    }
+                    
+                    if ($field) {
+                        // Convert the checkbox array to a readable string for storage
+                        $selectedOptions = [];
+                        $options = explode(',', $field->options);
+                        
+                        foreach ($value as $index => $isChecked) {
+                            if ($isChecked && isset($options[$index])) {
+                                $selectedOptions[] = trim($options[$index]);
+                            }
+                        }
+                        
+                        $valueForStorage = !empty($selectedOptions) ? implode(', ', $selectedOptions) : null;
+                        
+                        // Store the string representation in the database
+                        $this->submission->values()->updateOrCreate(
+                            ['form_field_id' => $fieldId],
+                            ['value' => $valueForStorage]
+                        );
+                    }
+                } else {
+                    // For non-array values, store as is
+                    $this->submission->values()->updateOrCreate(
+                        ['form_field_id' => $fieldId],
+                        ['value' => $value]
+                    );
+                }
+            }
+            
+            // Handle file uploads
             $this->handleFileUploads();
-            
-            // Process checkbox values before final submission
-            $this->processCheckboxValues();
-            
-            $this->saveValues();
 
             DB::commit();
 
-            $this->redirect(route('forms.user_index'));
+            $this->redirect(route('submissions.thankyou'));
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Submission failed', [
                 'error' => $e->getMessage(),
                 'submission_id' => $this->submission?->id ?? null,
-                'authenticated' => auth()->check()
+                'authenticated' => auth()->check(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e;
         }
@@ -444,6 +576,11 @@ class SubmissionForm extends Component
     protected function handleFileUploads(): void
     {
         foreach ($this->fieldValues as $fieldId => $value) {
+            // Skip if value is not a string (e.g., arrays from checkboxes)
+            if (!is_string($value)) {
+                continue;
+            }
+            
             if (str_starts_with($value, 'temp-submissions/')) {
                 $newPath = "submissions/{$this->submission->id}/" . basename($value);
                 Storage::disk('private')->move($value, $newPath);
@@ -495,5 +632,31 @@ class SubmissionForm extends Component
     public function render(): View|Factory|Application
     {
         return view('livewire.submission-form');
+    }
+
+    /**
+     * Debug method to log checkbox state
+     */
+    public function debugCheckboxes(): void
+    {
+        Log::info('Current fieldValues state', [
+            'fieldValues' => $this->fieldValues
+        ]);
+        
+        // Find all checkbox fields
+        $checkboxFields = [];
+        foreach ($this->form->categories as $category) {
+            foreach ($category->fields->where('type', 'checkbox') as $field) {
+                $checkboxFields[$field->id] = [
+                    'label' => $field->label,
+                    'options' => $field->options,
+                    'value' => $this->fieldValues[$field->id] ?? null
+                ];
+            }
+        }
+        
+        Log::info('Checkbox fields', [
+            'checkboxFields' => $checkboxFields
+        ]);
     }
 }

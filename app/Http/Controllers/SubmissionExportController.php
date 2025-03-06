@@ -99,7 +99,7 @@ class SubmissionExportController extends Controller
                     if ($value) {
                         $displayValue = match ($value->field->type) {
                             'file' => $value->value ? route('submissions.download', ['submission' => $submission->id, 'filename' => basename($value->value)]) : '',
-                            'checkbox' => $value->value ? 'Yes' : 'No',
+                            'checkbox' => $value->value,
                             default => $value->value,
                         };
                         $row[] = $displayValue;
@@ -170,7 +170,7 @@ class SubmissionExportController extends Controller
                 if ($value) {
                     $displayValue = match ($field->type) {
                         'file' => $value->value ? route('submissions.download', ['submission' => $submission->id, 'filename' => basename($value->value)]) : null,
-                        'checkbox' => $value->value ? 'Yes' : 'No',
+                        'checkbox' => $value->value,
                         'radio', 'select' => $value->value,
                         default => $value->value,
                     };
