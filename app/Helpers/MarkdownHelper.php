@@ -25,26 +25,42 @@ class MarkdownHelper
         // Convert *italic* to <em>italic</em>
         $text = preg_replace('/\*(.*?)\*/s', '<em>$1</em>', $text);
         
-        // Process bullet points - we do this before nl2br to handle the bullet points correctly
+        // Process lines and handle bullet points
         $lines = explode("\n", $text);
         $inList = false;
         $result = [];
+        $currentText = '';
         
         foreach ($lines as $line) {
             $trimmedLine = trim($line);
             if (strpos($trimmedLine, '- ') === 0) {
                 // This is a bullet point
+                
+                // If we have accumulated text, add it with nl2br
+                if (!empty($currentText)) {
+                    $result[] = nl2br($currentText);
+                    $currentText = '';
+                }
+                
+                // Start a list if not already in one
                 if (!$inList) {
                     $result[] = '<ul class="list-disc pl-5 space-y-1 my-2">';
                     $inList = true;
                 }
+                
+                // Add the list item
                 $result[] = '<li class="text-sm">' . substr($trimmedLine, 2) . '</li>';
             } else {
+                // Not a bullet point
+                
+                // Close list if we were in one
                 if ($inList) {
                     $result[] = '</ul>';
                     $inList = false;
                 }
-                $result[] = $line;
+                
+                // Accumulate regular text
+                $currentText .= ($currentText ? "\n" : '') . $line;
             }
         }
         
@@ -53,12 +69,12 @@ class MarkdownHelper
             $result[] = '</ul>';
         }
         
-        // Join the lines back together
-        $text = implode("\n", $result);
+        // Add any remaining text with nl2br
+        if (!empty($currentText)) {
+            $result[] = nl2br($currentText);
+        }
         
-        // Now convert new lines to <br> after handling bullet points
-        $text = nl2br($text);
-        
-        return $text;
+        // Join all the parts
+        return implode('', $result);
     }
 } 
