@@ -99,12 +99,12 @@ Route::middleware([
         ->name('submissions.download');
 
 
-    Route::prefix('forms/{form}/workflows')->name('workflows.')->middleware(['auth'])->group(function () {
+    /*Route::prefix('forms/{form}/workflows')->name('workflows.')->middleware(['auth'])->group(function () {
         Route::get('/manage', [WorkflowController::class, 'manage'])->name('manage');
         Route::get('/{workflow}', [WorkflowController::class, 'show'])->name('show');
         Route::delete('/steps/{step}', [WorkflowController::class, 'destroyStep'])->name('steps.destroy');
         Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy');
-    });
+    });*/
 
 });
 
