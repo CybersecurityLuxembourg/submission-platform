@@ -41,11 +41,11 @@
                     <span class="text-red-600 dark:text-red-400 text-sm">{{ $message }}</span>
                     @enderror
                 </div>
-                <div class="mb-6">
-                    <a target="_blank" href="{{ route('workflows.manage', $form) }}" class="button">
+               <!-- <div class="mb-6">
+                    <a target="_blank" href="{{--route('workflows.manage', $form) --}}" class="button">
                         Manage Workflow
                     </a>
-                </div>
+                </div>-->
                 <!-- Status Field -->
                 <div class="mb-6">
                     <label class="block text-gray-700 dark:text-gray-300 font-medium mb-2">
