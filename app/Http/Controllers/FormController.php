@@ -146,14 +146,10 @@ class FormController extends Controller
      */
     public function preview(Form $form): View|Factory|Application
     {
-       $this->authorize('view', $form);
-
-        if ($form->visibility === 'authenticated' && !Auth::check()) {
-            abort(403, 'This form is only accessible to authenticated users.');
-        }
-
-        if ($form->visibility === 'private' && $form->user_id !== Auth::id()) {
-            abort(403, 'You do not have permission to view this form.');
+        // Only allow form creators and appointed users (evaluators) to access preview
+        if ($form->user_id !== Auth::id() && 
+            !$form->appointedUsers()->where('user_id', Auth::id())->exists()) {
+            abort(403, 'Only form creators and evaluators can access form previews.');
         }
 
         return view('forms.preview', compact('form'));

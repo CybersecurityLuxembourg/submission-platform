@@ -44,7 +44,7 @@ Route::middleware([
         Route::get('/create', [FormController::class, 'create'])->name('create');
         Route::post('/', [FormController::class, 'store'])->name('store');
         Route::get('/{form}/edit', [FormController::class, 'edit'])->name('edit');
-        Route::get('/{form}', [FormController::class, 'preview'])->name('show');
+        Route::get('/{form}', [SubmissionController::class, 'show'])->name('show');
         Route::put('/{form}', [FormController::class, 'update'])->name('update');
         Route::delete('/{form}', [FormController::class, 'destroy'])->name('destroy');
         Route::get('/{form}/preview', [FormController::class, 'preview'])->name('preview');
