@@ -192,7 +192,7 @@ class SubmissionController extends Controller
                 if ($value) {
                     $displayValue = match ($field->type) {
                         'file' => $value->value ? route('submissions.download', ['submission' => $submission->id, 'filename' => basename($value->value)]) : null,
-                        'checkbox' => $value->value ? 'Yes' : 'No',
+                        'checkbox' => $value->value, // Show the actual selected options instead of just Yes/No
                         'radio', 'select' => $value->value,
                         default => $value->value,
                     };

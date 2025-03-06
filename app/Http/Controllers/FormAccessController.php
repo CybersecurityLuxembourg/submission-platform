@@ -48,7 +48,7 @@ class FormAccessController extends Controller
     public function createAccessLink(Request $request, Form $form): RedirectResponse
     {
 
-        $this->authorize('assignUsers', $form);
+        $this->authorize('createAccessLink', $form);
 
         $validatedData = $request->validate([
             'expires_at' => 'nullable|date|after:now',

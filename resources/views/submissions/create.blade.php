@@ -12,7 +12,9 @@
                     <h1 class="text-2xl font-semibold mb-6 text-gray-900 dark:text-gray-100">{{ $form->title }}</h1>
 
                     @if($form->description)
-                        <p class="mb-6 text-gray-600 dark:text-gray-400">{{ $form->description }}</p>
+                        <div class="mb-6 text-gray-600 dark:text-gray-400">
+                            {!! \App\Helpers\MarkdownHelper::toHtml($form->description) !!}
+                        </div>
                     @endif
                     @livewire('submission-form', ['form' => $form])
 

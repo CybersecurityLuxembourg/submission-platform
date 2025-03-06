@@ -39,7 +39,7 @@
 
             @if($this->currentStepData['description'])
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ $this->currentStepData['description'] }}
+                    {!! \App\Helpers\MarkdownHelper::toHtml($this->currentStepData['description']) !!}
                 </p>
             @endif
         </div>
@@ -103,9 +103,9 @@
                             {{ $field->content }}
                         </h4>
                     @elseif($field->type === 'description')
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            {{ $field->content }}
-                        </p>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            {!! \App\Helpers\MarkdownHelper::toHtml($field->content) !!}
+                        </div>
                     @else
                         <label for="field_{{ $field->id }}"
                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -147,11 +147,19 @@
                             <div class="mt-2 space-y-2">
                                 @foreach(explode(',', $field->options) as $option)
                                     <div class="flex items-center">
-                                        <input type="{{ $field->type }}"
-                                               id="field_{{ $field->id }}_{{ $loop->index }}"
-                                               wire:model="fieldValues.{{ $field->id }}"
-                                               value="{{ trim($option) }}"
-                                               class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600">
+                                        @if($field->type === 'checkbox')
+                                            <input type="checkbox"
+                                                   id="field_{{ $field->id }}_{{ $loop->index }}"
+                                                   wire:model="fieldValues.{{ $field->id }}.{{ $loop->index }}"
+                                                   value="{{ trim($option) }}"
+                                                   class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600">
+                                        @else
+                                            <input type="radio"
+                                                   id="field_{{ $field->id }}_{{ $loop->index }}"
+                                                   wire:model="fieldValues.{{ $field->id }}"
+                                                   value="{{ trim($option) }}"
+                                                   class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 dark:border-gray-600">
+                                        @endif
                                         <label for="field_{{ $field->id }}_{{ $loop->index }}"
                                                class="ml-3 block text-sm text-gray-700 dark:text-gray-300">
                                             {{ trim($option) }}
