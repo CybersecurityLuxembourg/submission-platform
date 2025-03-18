@@ -76,6 +76,24 @@
 
         @livewireScripts
 
+        <!-- Footer -->
+        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-auto py-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
+                        &copy; {{ date('Y') }} Luxembourg House of Cybersecurity. All rights reserved.
+                    </div>
+                    <div class="flex space-x-4 text-sm">
+                        <a href="{{ route('terms.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                            Terms of Service
+                        </a>
+                        <a href="{{ route('policy.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                            Privacy Policy
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </footer>
     </body>
 </html>
 
