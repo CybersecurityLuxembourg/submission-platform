@@ -605,20 +605,53 @@ class SubmissionForm extends Component
 
         foreach ($this->form->categories as $category) {
             foreach ($category->fields as $field) {
+                $fieldRules = [];
+
+                // Add required rule if field is required
                 if ($field->required) {
-                    $rules["fieldValues.{$field->id}"] = 'required';
+                    $fieldRules[] = 'required';
+                } else {
+                    $fieldRules[] = 'nullable';
                 }
 
-                if (!empty($field->char_limit)) {
-                    $rules["fieldValues.{$field->id}"] = "nullable|string|max:{$field->char_limit}";
+                // Add type-specific rules
+                switch ($field->type) {
+                    case 'text':
+                    case 'textarea':
+                        $fieldRules[] = 'string';
+                        if (!empty($field->char_limit)) {
+                            $fieldRules[] = "max:{$field->char_limit}";
+                        }
+                        break;
+
+                    case 'select':
+                    case 'radio':
+                        $fieldRules[] = 'string';
+                        if (!empty($field->options)) {
+                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
+                        }
+                        break;
+
+                    case 'checkbox':
+                        $fieldRules[] = 'array';
+                        if (!empty($field->options)) {
+                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
+                        }
+                        break;
+
+                    case 'file':
+                        $fieldRules[] = 'file';
+                        $fieldRules[] = 'max:' . self::MAX_FILE_SIZE;
+                        $fieldRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        break;
                 }
 
+                // Add rules for field values
+                $rules["fieldValues.{$field->id}"] = $fieldRules;
+
+                // Add rules for file uploads
                 if ($field->type === 'file') {
-                    $rules["tempFiles.field_{$field->id}"] = sprintf(
-                        'nullable|file|max:%d|mimes:%s',
-                        self::MAX_FILE_SIZE,
-                        implode(',', self::ALLOWED_FILE_TYPES)
-                    );
+                    $rules["tempFiles.field_{$field->id}"] = $fieldRules;
                 }
             }
         }
