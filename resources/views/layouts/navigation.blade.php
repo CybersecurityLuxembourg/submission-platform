@@ -19,6 +19,9 @@
                         {{ __('Available Forms') }}
                     </x-nav-link>
                     @auth
+                        <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                            {{ __('Dashboard') }}
+                        </x-nav-link>
                         @if(auth()->user()->role === 'internal_evaluator' || auth()->user()->isAdmin() || auth()->user()->role === 'external_evaluator')
                         <x-nav-link :href="route('forms.user_index')" :active="request()->routeIs('forms.user_index')">
                             {{ __('My Forms') }}
@@ -95,6 +98,9 @@
                 {{ __('Available Forms') }}
             </x-responsive-nav-link>
             @auth
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                    {{ __('Dashboard') }}
+                </x-responsive-nav-link>
                 @if(auth()->user()->role === 'internal_evaluator' || auth()->user()->isAdmin() || auth()->user()->role === 'external_evaluator')
                     <x-responsive-nav-link :href="route('forms.user_index')" :active="request()->routeIs('forms.user_index')">
                         {{ __('My Forms') }}
