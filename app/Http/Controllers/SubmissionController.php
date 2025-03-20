@@ -273,7 +273,7 @@ class SubmissionController extends Controller
 
             \DB::commit();
 
-            return redirect()->route('submissions.user.index')
+            return redirect()->route('submissions.user')
                 ->with('success', 'Submission deleted successfully.');
 
         } catch (Exception $e) {
