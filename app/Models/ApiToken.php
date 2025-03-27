@@ -83,4 +83,15 @@ class ApiToken extends Model
         $this->last_used_at = now();
         return $this->save();
     }
+
+    /**
+     * Get the API token from the request attribute.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return ApiToken|null
+     */
+    public static function fromRequest($request)
+    {
+        return $request->attributes->get('api_token');
+    }
 } 

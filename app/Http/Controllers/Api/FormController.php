@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FormResource;
+use App\Models\ApiToken;
 use App\Models\Form;
 use App\Models\FormCategory;
 use App\Models\FormField;
@@ -22,7 +23,8 @@ class FormController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Form::query()->where('user_id', auth()->id());
+        $apiToken = ApiToken::fromRequest($request);
+        $query = Form::query()->where('user_id', $apiToken->user_id);
         
         // Apply filters if provided
         if ($request->has('status')) {
@@ -70,11 +72,13 @@ class FormController extends Controller
         }
 
         try {
+            $apiToken = ApiToken::fromRequest($request);
+            
             // Use a transaction to ensure data integrity
-            return DB::transaction(function () use ($request) {
+            return DB::transaction(function () use ($request, $apiToken) {
                 // Create the form
                 $form = Form::create([
-                    'user_id' => auth()->id(),
+                    'user_id' => $apiToken->user_id,
                     'title' => $request->title,
                     'description' => $request->description ?? null,
                     'status' => $request->status,
@@ -131,11 +135,13 @@ class FormController extends Controller
      * @param Form $form
      * @return FormResource|\Illuminate\Http\JsonResponse
      */
-    public function show(Form $form)
+    public function show(Request $request, Form $form)
     {
-        // Check if user owns or has access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->exists()) {
+        $apiToken = ApiToken::fromRequest($request);
+        
+        // Check if token's user owns or has access to the form
+        if ($form->user_id !== $apiToken->user_id && 
+            !$form->appointedUsers()->where('user_id', $apiToken->user_id)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -153,9 +159,11 @@ class FormController extends Controller
      */
     public function update(Request $request, Form $form)
     {
-        // Check if user owns the form or has edit permission
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->where('can_edit', true)->exists()) {
+        $apiToken = ApiToken::fromRequest($request);
+        
+        // Check if token's user owns the form or has edit permission
+        if ($form->user_id !== $apiToken->user_id && 
+            !$form->appointedUsers()->where('user_id', $apiToken->user_id)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -184,10 +192,12 @@ class FormController extends Controller
      * @param Form $form
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(Form $form)
+    public function destroy(Request $request, Form $form)
     {
-        // Check if user owns the form
-        if ($form->user_id !== auth()->id()) {
+        $apiToken = ApiToken::fromRequest($request);
+        
+        // Check if token's user owns the form
+        if ($form->user_id !== $apiToken->user_id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 

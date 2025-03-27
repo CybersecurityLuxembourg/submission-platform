@@ -18,12 +18,6 @@ class ApiTokenIPMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-        
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-        
         // Get the bearer token from the request
         $bearerToken = $request->bearerToken();
         
@@ -33,9 +27,7 @@ class ApiTokenIPMiddleware
         
         // Find the token in our database
         $tokenHash = hash('sha256', $bearerToken);
-        $token = ApiToken::where('token', $tokenHash)
-                         ->where('user_id', $user->id)
-                         ->first();
+        $token = ApiToken::where('token', $tokenHash)->first();
         
         if (!$token) {
             return response()->json(['message' => 'Invalid API token'], 401);
@@ -63,6 +55,9 @@ class ApiTokenIPMiddleware
                 'message' => 'API token does not have the required permissions'
             ], 403);
         }
+        
+        // Set token for access in controllers
+        $request->attributes->set('api_token', $token);
         
         return $next($request);
     }

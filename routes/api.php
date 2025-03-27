@@ -22,8 +22,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// API routes - protected by sanctum auth and custom IP validation
-Route::middleware(['auth:sanctum', 'api.token.ip'])->prefix('v1')->name('api.')->group(function () {
+// API routes - protected by custom IP validation and token checking
+Route::middleware(['api.token.ip'])->prefix('v1')->name('api.')->group(function () {
     // API Token Management
     Route::apiResource('tokens', ApiTokenController::class)->except(['show']);
     
