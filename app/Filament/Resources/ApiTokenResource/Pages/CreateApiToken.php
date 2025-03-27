@@ -10,13 +10,16 @@ class CreateApiToken extends CreateRecord
 {
     protected static string $resource = ApiTokenResource::class;
     
+    // Store the plain text token temporarily
+    public $plainTextToken;
+    
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // Generate a secure token
-        $plainTextToken = Str::random(40);
+        $this->plainTextToken = Str::random(40);
         
         // Store hashed token in the database
-        $data['token'] = hash('sha256', $plainTextToken);
+        $data['token'] = hash('sha256', $this->plainTextToken);
         
         // Set user ID
         $data['user_id'] = auth()->id();
@@ -26,18 +29,13 @@ class CreateApiToken extends CreateRecord
             $data['abilities'] = ['forms:read'];
         }
         
-        // Store plain text token temporarily to show to the user
-        $this->record = ['plain_text_token' => $plainTextToken];
-        
         return $data;
     }
     
     protected function afterCreate(): void
     {
-        // Store token in session for display on the form
-        $record = $this->record;
-        $record->plain_text_token = $this->record['plain_text_token'];
-        $this->record = $record;
+        // Attach the plain text token to the model for display purposes
+        $this->record->plain_text_token = $this->plainTextToken;
     }
     
     protected function getRedirectUrl(): string

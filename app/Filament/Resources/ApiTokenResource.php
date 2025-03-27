@@ -62,21 +62,11 @@ class ApiTokenResource extends Resource
                     
                 Forms\Components\Section::make('Plain Text Token')
                     ->schema([
-                        Forms\Components\Placeholder::make('token_preview')
+                        Forms\Components\Placeholder::make('token_display')
                             ->label('Token')
-                            ->content(function ($record) {
-                                if (!$record) {
-                                    return 'The token will be displayed here after creation. Make sure to copy it, as it won\'t be shown again.';
-                                }
-                                
-                                if ($record->plain_text_token ?? null) {
-                                    return $record->plain_text_token;
-                                }
-                                
-                                return 'Token already created. For security reasons, it can\'t be displayed again.';
-                            }),
+                            ->content(fn ($record) => $record?->plain_text_token ?? 'Token is only displayed once after creation.'),
                     ])
-                    ->visible(fn ($record) => $record || $record?->plain_text_token),
+                    ->visible(fn ($record) => $record && isset($record->plain_text_token)),
             ]);
     }
 
