@@ -75,8 +75,10 @@ class ApiLogResource extends Resource
                     
                 Forms\Components\Section::make('Request Data')
                     ->schema([
-                        Forms\Components\JsonEditor::make('request_data')
-                            ->disabled(),
+                        Forms\Components\Textarea::make('request_data')
+                            ->disabled()
+                            ->columnSpanFull()
+                            ->rows(10),
                     ]),
             ]);
     }
