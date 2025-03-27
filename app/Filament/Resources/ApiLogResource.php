@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Database\Eloquent\Model;
 
 class ApiLogResource extends Resource
 {
@@ -33,12 +34,12 @@ class ApiLogResource extends Resource
         return false;
     }
     
-    public static function canEdit(ApiLog $record): bool
+    public static function canEdit(Model $record): bool
     {
         return false;
     }
     
-    public static function canDelete(ApiLog $record): bool
+    public static function canDelete(Model $record): bool
     {
         return auth()->user()->isAdmin();
     }
