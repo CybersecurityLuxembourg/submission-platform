@@ -1,40 +1,40 @@
 <?php
 
-use App\Http\Middleware\ApiLogMiddleware;
-use App\Http\Middleware\ApiTokenIPMiddleware;
-use App\Http\Middleware\FormAccessMiddleware;
+namespace App\Exceptions;
+
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
-return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
-        health: '/up',
-    )
-    ->withMiddleware(function (Middleware $middleware) {
-        // Web middleware
-        $middleware->web(append: FormAccessMiddleware::class);
-        
-        // API middleware
-        $middleware->alias([
-            'api.token.ip' => ApiTokenIPMiddleware::class,
-        ]);
-        
-        // Add API log middleware to the API group
-        $middleware->api(append: ApiLogMiddleware::class);
-    })
-    ->withExceptions(function (Exceptions $exceptions) {
-        // API-specific exception handling
-        $exceptions->renderable(function (\Throwable $e, Request $request) {
+class Handler extends ExceptionHandler
+{
+    /**
+     * The list of the inputs that are never flashed to the session on validation exceptions.
+     *
+     * @var array<int, string>
+     */
+    protected $dontFlash = [
+        'current_password',
+        'password',
+        'password_confirmation',
+    ];
+
+    /**
+     * Register the exception handling callbacks for the application.
+     */
+    public function register(): void
+    {
+        $this->reportable(function (Throwable $e) {
+            //
+        });
+
+        // Convert exceptions to API-friendly JSON responses when appropriate
+        $this->renderable(function (Throwable $e, Request $request) {
             // Only apply to API requests
             if (!$request->is('api/*')) {
                 return null;
@@ -86,4 +86,5 @@ return Application::configure(basePath: dirname(__DIR__))
                 'trace' => $e->getTraceAsString(),
             ], 500);
         });
-    })->create();
+    }
+} 
