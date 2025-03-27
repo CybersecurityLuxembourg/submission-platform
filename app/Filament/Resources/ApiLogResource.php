@@ -51,32 +51,32 @@ class ApiLogResource extends Resource
                 Forms\Components\Section::make('Request Details')
                     ->schema([
                         Forms\Components\TextInput::make('method')
-                            ->readOnly(),
+                            ->disabled(),
                         Forms\Components\TextInput::make('endpoint')
-                            ->readOnly(),
+                            ->disabled(),
                         Forms\Components\TextInput::make('ip_address')
-                            ->readOnly(),
+                            ->disabled(),
                         Forms\Components\TextInput::make('response_code')
-                            ->readOnly(),
+                            ->disabled(),
                         Forms\Components\TextInput::make('execution_time')
                             ->suffix('ms')
-                            ->readOnly(),
+                            ->disabled(),
                     ])->columns(2),
                     
                 Forms\Components\Section::make('Related User and Token')
                     ->schema([
                         Forms\Components\Select::make('user_id')
                             ->relationship('user', 'name')
-                            ->readOnly(),
+                            ->disabled(),
                         Forms\Components\Select::make('token_id')
                             ->relationship('token', 'name')
-                            ->readOnly(),
+                            ->disabled(),
                     ])->columns(2),
                     
                 Forms\Components\Section::make('Request Data')
                     ->schema([
                         Forms\Components\JsonEditor::make('request_data')
-                            ->readOnly(),
+                            ->disabled(),
                     ]),
             ]);
     }
