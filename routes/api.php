@@ -22,25 +22,42 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-// API routes - protected by custom IP validation and token checking
-Route::middleware(['api.token.ip'])->prefix('v1')->name('api.')->group(function () {
-    // API Token Management
-    Route::apiResource('tokens', ApiTokenController::class)->except(['show']);
+// Apply general API rate limiting to all API routes
+Route::middleware(['throttle:api'])->group(function () {
     
-    // Form Management
-    Route::apiResource('forms', FormController::class);
-    
-    // Form Access Links
-    Route::get('/forms/{form}/access-links', [FormAccessController::class, 'index'])->name('forms.access_links.index');
-    Route::post('/forms/{form}/access-links', [FormAccessController::class, 'store'])->name('forms.access_links.store');
-    Route::get('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'show'])->name('forms.access_links.show');
-    Route::put('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'update'])->name('forms.access_links.update');
-    Route::delete('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'destroy'])->name('forms.access_links.destroy');
-    
-    // Submissions
-    Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])->name('forms.submissions.index');
-    Route::post('/forms/{form}/submissions', [SubmissionController::class, 'store'])->name('forms.submissions.store');
-    Route::get('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'show'])->name('forms.submissions.show');
-    Route::put('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'update'])->name('forms.submissions.update');
-    Route::delete('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'destroy'])->name('forms.submissions.destroy');
+    // Custom token authentication middleware with IP validation
+    // Apply specific rate limiting for authenticated API routes
+    Route::middleware(['api.token.ip'])->prefix('v1')->name('api.')->group(function () {
+        // API Token Management (standard API rate limit)
+        Route::apiResource('tokens', ApiTokenController::class)->except(['show']);
+        
+        // Form Management (standard API rate limit)
+        Route::apiResource('forms', FormController::class);
+        
+        // Form Access Links (standard API rate limit)
+        Route::get('/forms/{form}/access-links', [FormAccessController::class, 'index'])
+            ->name('forms.access_links.index');
+        Route::post('/forms/{form}/access-links', [FormAccessController::class, 'store'])
+            ->name('forms.access_links.store');
+        Route::get('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'show'])
+            ->name('forms.access_links.show');
+        Route::put('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'update'])
+            ->name('forms.access_links.update');
+        Route::delete('/forms/{form}/access-links/{accessLink}', [FormAccessController::class, 'destroy'])
+            ->name('forms.access_links.destroy');
+        
+        // Submissions with specific submission rate limits
+        Route::middleware(['throttle:api-submissions'])->group(function () {
+            Route::get('/forms/{form}/submissions', [SubmissionController::class, 'index'])
+                ->name('forms.submissions.index');
+            Route::post('/forms/{form}/submissions', [SubmissionController::class, 'store'])
+                ->name('forms.submissions.store');
+            Route::get('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'show'])
+                ->name('forms.submissions.show');
+            Route::put('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'update'])
+                ->name('forms.submissions.update');
+            Route::delete('/forms/{form}/submissions/{submission}', [SubmissionController::class, 'destroy'])
+                ->name('forms.submissions.destroy');
+        });
+    });
 });

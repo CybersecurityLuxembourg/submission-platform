@@ -12,36 +12,41 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ApiToken;
+use Illuminate\Http\JsonResponse;
 
 class SubmissionController extends Controller
 {
     /**
      * Display a listing of submissions for a form.
      *
-     * @param Request $request
-     * @param Form $form
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection|\Illuminate\Http\JsonResponse
      */
     public function index(Request $request, Form $form)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if user owns or has access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
         $query = $form->submissions();
         
         // Apply filters if provided
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
         
-        if ($request->has('start_date')) {
+        if ($request->filled('start_date')) {
             $query->whereDate('created_at', '>=', $request->start_date);
         }
         
-        if ($request->has('end_date')) {
+        if ($request->filled('end_date')) {
             $query->whereDate('created_at', '<=', $request->end_date);
         }
         
@@ -56,19 +61,23 @@ class SubmissionController extends Controller
     /**
      * Store a newly created submission.
      *
-     * @param Request $request
-     * @param Form $form
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request, Form $form)
+    public function store(Request $request, Form $form): JsonResponse
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if form is published
         if ($form->status !== 'published') {
             return response()->json(['message' => 'Form is not available for submissions'], 403);
         }
         
-        // Check if form is accessible
-        if (!$form->canAccess(auth()->user())) {
+        // For API-based submissions, we need to validate against the API token
+        // rather than the authenticated user
+        if ($form->visibility === 'private' && $form->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized access to this form'], 403);
         }
         
@@ -168,20 +177,24 @@ class SubmissionController extends Controller
     /**
      * Display the specified submission.
      *
-     * @param Form $form
-     * @param Submission $submission
-     * @return SubmissionResource|\Illuminate\Http\JsonResponse
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\Submission  $submission
+     * @return \App\Http\Resources\SubmissionResource|\Illuminate\Http\JsonResponse
      */
-    public function show(Form $form, Submission $submission)
+    public function show(Request $request, Form $form, Submission $submission)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if submission belongs to the specified form
         if ($submission->form_id !== $form->id) {
             return response()->json(['message' => 'Submission not found for this form'], 404);
         }
         
         // Check if user owns or has access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -194,35 +207,38 @@ class SubmissionController extends Controller
     /**
      * Update the submission status.
      *
-     * @param Request $request
-     * @param Form $form
-     * @param Submission $submission
-     * @return SubmissionResource|\Illuminate\Http\JsonResponse
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\Submission  $submission
+     * @return \App\Http\Resources\SubmissionResource|\Illuminate\Http\JsonResponse
      */
     public function update(Request $request, Form $form, Submission $submission)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if submission belongs to the specified form
         if ($submission->form_id !== $form->id) {
             return response()->json(['message' => 'Submission not found for this form'], 404);
         }
         
         // Check if user owns or has access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
+
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:submitted,approved,rejected'
+            'status' => 'required|in:submitted,processing,completed,rejected'
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         $submission->update([
             'status' => $request->status
         ]);
@@ -233,28 +249,32 @@ class SubmissionController extends Controller
     /**
      * Remove the specified submission.
      *
-     * @param Form $form
-     * @param Submission $submission
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\Submission  $submission
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(Form $form, Submission $submission)
+    public function destroy(Request $request, Form $form, Submission $submission): JsonResponse
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if submission belongs to the specified form
         if ($submission->form_id !== $form->id) {
             return response()->json(['message' => 'Submission not found for this form'], 404);
         }
         
         // Check if user owns the form
-        if ($form->user_id !== auth()->id()) {
+        if ($form->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
-        // Delete the submission and its values
+
+        // Delete submission and its values
         DB::transaction(function () use ($submission) {
             $submission->values()->delete();
             $submission->delete();
         });
-        
+
         return response()->json(['message' => 'Submission deleted successfully'], 200);
     }
 } 

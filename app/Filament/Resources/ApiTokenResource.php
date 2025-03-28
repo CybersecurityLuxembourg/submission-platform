@@ -34,6 +34,14 @@ class ApiTokenResource extends Resource
                             ->required()
                             ->maxLength(255),
                             
+                        Forms\Components\Select::make('user_id')
+                            ->relationship('user', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->label('Token Owner')
+                            ->helperText('User who will own this token and access its data'),
+                            
                         Forms\Components\TextInput::make('allowed_ips')
                             ->placeholder('192.168.1.1, 10.0.0.1')
                             ->helperText('Comma separated IPs. Leave empty to allow all'),
@@ -76,6 +84,10 @@ class ApiTokenResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Owner')
+                    ->searchable()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('allowed_ips')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('last_used_at')
@@ -117,6 +129,12 @@ class ApiTokenResource extends Resource
                         
                         return $query;
                     }),
+                    
+                Tables\Filters\SelectFilter::make('user')
+                    ->relationship('user', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->label('Filter by Owner'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

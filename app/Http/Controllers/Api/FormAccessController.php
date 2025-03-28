@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\FormAccessLinkResource;
+use App\Models\ApiToken;
 use App\Models\Form;
 use App\Models\FormAccessLink;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -15,14 +18,18 @@ class FormAccessController extends Controller
     /**
      * Display a listing of form access links.
      *
-     * @param Form $form
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
      * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection|\Illuminate\Http\JsonResponse
      */
-    public function index(Form $form)
+    public function index(Request $request, Form $form): AnonymousResourceCollection|JsonResponse
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if user owns or has edit access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->where('can_edit', true)->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -34,15 +41,18 @@ class FormAccessController extends Controller
     /**
      * Store a newly created access link.
      *
-     * @param Request $request
-     * @param Form $form
-     * @return FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
      */
     public function store(Request $request, Form $form)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if user owns or has edit access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->where('can_edit', true)->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -77,20 +87,24 @@ class FormAccessController extends Controller
     /**
      * Display the specified access link.
      *
-     * @param Form $form
-     * @param FormAccessLink $accessLink
-     * @return FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\FormAccessLink  $accessLink
+     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
      */
-    public function show(Form $form, FormAccessLink $accessLink)
+    public function show(Request $request, Form $form, FormAccessLink $accessLink)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if access link belongs to the specified form
         if ($accessLink->form_id !== $form->id) {
             return response()->json(['message' => 'Access link not found for this form'], 404);
         }
         
         // Check if user owns or has edit access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->where('can_edit', true)->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -100,21 +114,24 @@ class FormAccessController extends Controller
     /**
      * Update the specified access link.
      *
-     * @param Request $request
-     * @param Form $form
-     * @param FormAccessLink $accessLink
-     * @return FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\FormAccessLink  $accessLink
+     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
      */
     public function update(Request $request, Form $form, FormAccessLink $accessLink)
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if access link belongs to the specified form
         if ($accessLink->form_id !== $form->id) {
             return response()->json(['message' => 'Access link not found for this form'], 404);
         }
         
         // Check if user owns or has edit access to the form
-        if ($form->user_id !== auth()->id() && 
-            !$form->appointedUsers()->where('user_id', auth()->id())->where('can_edit', true)->exists()) {
+        if ($form->user_id !== $userId && 
+            !$form->appointedUsers()->where('user_id', $userId)->where('can_edit', true)->exists()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         
@@ -139,19 +156,23 @@ class FormAccessController extends Controller
     /**
      * Remove the specified access link.
      *
-     * @param Form $form
-     * @param FormAccessLink $accessLink
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Form  $form
+     * @param  \App\Models\FormAccessLink  $accessLink
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy(Form $form, FormAccessLink $accessLink)
+    public function destroy(Request $request, Form $form, FormAccessLink $accessLink): JsonResponse
     {
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
         // Check if access link belongs to the specified form
         if ($accessLink->form_id !== $form->id) {
             return response()->json(['message' => 'Access link not found for this form'], 404);
         }
         
         // Check if user owns the form
-        if ($form->user_id !== auth()->id()) {
+        if ($form->user_id !== $userId) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
         

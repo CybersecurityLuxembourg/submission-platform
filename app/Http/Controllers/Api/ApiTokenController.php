@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApiToken;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -17,9 +18,12 @@ class ApiTokenController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $tokens = ApiToken::where('user_id', auth()->id())
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
+        $tokens = ApiToken::where('user_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get(['id', 'name', 'abilities', 'allowed_ips', 'last_used_at', 'expires_at', 'created_at']);
 
@@ -32,7 +36,7 @@ class ApiTokenController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -49,6 +53,10 @@ class ApiTokenController extends Controller
             ], 422);
         }
 
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+     //TODO: apitoken not linked to a user is it?
+     
         // Generate a secure random token
         $plainTextToken = Str::random(40);
         $tokenHash = hash('sha256', $plainTextToken);
@@ -58,7 +66,7 @@ class ApiTokenController extends Controller
 
         // Create the token record
         $token = ApiToken::create([
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'name' => $request->name,
             'token' => $tokenHash,
             'abilities' => $abilities,
@@ -88,9 +96,12 @@ class ApiTokenController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): JsonResponse
     {
-        $token = ApiToken::where('user_id', auth()->id())
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
+        $token = ApiToken::where('user_id', $userId)
             ->where('id', $id)
             ->firstOrFail();
 
@@ -123,12 +134,16 @@ class ApiTokenController extends Controller
     /**
      * Remove the specified API token.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @param  int  $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id): JsonResponse
     {
-        $token = ApiToken::where('user_id', auth()->id())
+        $apiToken = ApiToken::fromRequest($request);
+        $userId = $apiToken->user_id;
+        
+        $token = ApiToken::where('user_id', $userId)
             ->where('id', $id)
             ->firstOrFail();
 

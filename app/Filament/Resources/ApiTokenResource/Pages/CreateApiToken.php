@@ -22,8 +22,7 @@ class CreateApiToken extends CreateRecord
         // Store hashed token in the database
         $data['token'] = hash('sha256', $this->plainTextToken);
         
-        // Set user ID
-        $data['user_id'] = auth()->id();
+        // User ID is now selected in the form, not automatically assigned
         
         // Store default abilities if none provided
         if (!isset($data['abilities'])) {
