@@ -23,6 +23,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::define('viewApiDocs', function (User $user) {
+            $host = request()->getHost();
+            
+            // Allow all access if domain starts with "test."
+            if (str_starts_with($host, 'test.')) {
+                return true;
+            }
+            
+            // Get allowed domains from .env (comma-separated list)
+            $allowedDomains = explode(',', env('API_DOCS_ALLOWED_DOMAINS', 'lhc.lu,circl.lu,nc3.lu'));
+            
+            // Extract domain from user's email
+            $emailDomain = substr(strrchr($user->email, "@"), 1);
+            
+            return in_array($emailDomain, $allowedDomains);
+        });
+
         // Define rate limiter for general API usage
         RateLimiter::for('api', function (Request $request) {
             // Get the API token if available
