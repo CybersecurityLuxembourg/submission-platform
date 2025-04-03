@@ -27,6 +27,11 @@
                             {{ __('My Forms') }}
                         </x-nav-link>
                         @endif
+                        @if(auth()->user()->isAdmin())
+                        <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">
+                            {{ __('Admin') }}
+                        </x-nav-link>
+                        @endif
                         <x-nav-link :href="route('submissions.user')" :active="request()->routeIs('submissions.user')">
                             {{ __('My Submissions') }}
                         </x-nav-link>
@@ -104,6 +109,11 @@
                 @if(auth()->user()->role === 'internal_evaluator' || auth()->user()->isAdmin() || auth()->user()->role === 'external_evaluator')
                     <x-responsive-nav-link :href="route('forms.user_index')" :active="request()->routeIs('forms.user_index')">
                         {{ __('My Forms') }}
+                    </x-responsive-nav-link>
+                @endif
+                @if(auth()->user()->isAdmin())
+                    <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">
+                        {{ __('Admin') }}
                     </x-responsive-nav-link>
                 @endif
                 <x-responsive-nav-link :href="route('submissions.user')" :active="request()->routeIs('submissions.user')">
