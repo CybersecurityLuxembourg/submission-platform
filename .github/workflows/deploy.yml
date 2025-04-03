@@ -97,6 +97,7 @@ jobs:
           MAIL_FROM_NAME="NC3's Application Platform"
 
           VITE_APP_NAME="NC3's Application Platform"
+          API_DOCS_ALLOWED_DOMAINS=lhc.lu,circl.lu,nc3.lu
           EOL
           chmod 644 .env
 

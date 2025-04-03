@@ -7,6 +7,7 @@
     "require": {
         "php": "^8.2",
         "barryvdh/laravel-dompdf": "^3.0",
+        "dedoc/scramble": "^0.12.16",
         "filament/filament": "^3.3.4",
         "laravel/framework": "^12.0",
         "laravel/jetstream": "^5.2",

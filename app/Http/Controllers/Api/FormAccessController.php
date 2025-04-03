@@ -18,9 +18,9 @@ class FormAccessController extends Controller
     /**
      * Display a listing of form access links.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Form  $form
-     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection|\Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @param  Form  $form
+     * @return AnonymousResourceCollection|JsonResponse
      */
     public function index(Request $request, Form $form): AnonymousResourceCollection|JsonResponse
     {
@@ -41,9 +41,9 @@ class FormAccessController extends Controller
     /**
      * Store a newly created access link.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Form  $form
-     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @param  Form  $form
+     * @return FormAccessLinkResource|JsonResponse
      */
     public function store(Request $request, Form $form)
     {
@@ -87,10 +87,10 @@ class FormAccessController extends Controller
     /**
      * Display the specified access link.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Form  $form
-     * @param  \App\Models\FormAccessLink  $accessLink
-     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param Request  $request
+     * @param Form  $form
+     * @param FormAccessLink  $accessLink
+     * @returns FormAccessLinkResource|JsonResponse
      */
     public function show(Request $request, Form $form, FormAccessLink $accessLink)
     {
@@ -114,10 +114,10 @@ class FormAccessController extends Controller
     /**
      * Update the specified access link.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Form  $form
-     * @param  \App\Models\FormAccessLink  $accessLink
-     * @return \App\Http\Resources\FormAccessLinkResource|\Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @param  Form  $form
+     * @param  FormAccessLink  $accessLink
+     * @return FormAccessLinkResource|JsonResponse
      */
     public function update(Request $request, Form $form, FormAccessLink $accessLink)
     {
@@ -156,10 +156,10 @@ class FormAccessController extends Controller
     /**
      * Remove the specified access link.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Form  $form
-     * @param  \App\Models\FormAccessLink  $accessLink
-     * @return \Illuminate\Http\JsonResponse
+     * @param  Request  $request
+     * @param  Form  $form
+     * @param  FormAccessLink  $accessLink
+     * @return JsonResponse
      */
     public function destroy(Request $request, Form $form, FormAccessLink $accessLink): JsonResponse
     {

@@ -55,7 +55,6 @@ class ApiTokenController extends Controller
 
         $apiToken = ApiToken::fromRequest($request);
         $userId = $apiToken->user_id;
-     //TODO: apitoken not linked to a user is it?
      
         // Generate a secure random token
         $plainTextToken = Str::random(40);
