@@ -1,11 +1,9 @@
 # Project Name
 
-
-
 ## Overview
 
 
-The NC3 Submission Platform is a sophisticated form management system designed for secure submission of cybersecurity-related applications. It combines flexible access controls and collaborative features.
+The NC3 Submission Platform is a sophisticated form management system designed for secure submission of different forms. It combines flexible access controls and collaborative features.
 
 
 ## Key Features
@@ -14,6 +12,7 @@ The NC3 Submission Platform is a sophisticated form management system designed f
 - No-code form creation interface
 - Custom workflow support [WIP]
 - File upload capabilities
+- Drafting before submitting
 
 ## Requirements
 
