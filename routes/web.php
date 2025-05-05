@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [FormController::class, 'index'])
     ->name('homepage')
     ->middleware(FormAccessMiddleware::class);
+    Route::get('/', [FormController::class, 'index'])
+    ->name('admin.dashboard');
 
 Route::get('/forms', [FormController::class, 'publicIndex'])
     ->name('forms.public_index')
