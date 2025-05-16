@@ -10,7 +10,6 @@ fi
 docker network inspect app_network >/dev/null 2>&1 || docker network create app_network
 
 docker compose \
-  --profile pandora \
   -f "$PROJECT_ROOT/docker-compose.yml" \
   -f "$PROJECT_ROOT/docker/pandora/pandora.yml" \
   up -d --pull always --quiet-pull
