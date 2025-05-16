@@ -1,7 +1,4 @@
 # docker/pandora/pandora.yml
-name: nc3_stack
-profiles: ["pandora"]
-
 services:
   redis:
     image: redis:7
