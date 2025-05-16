@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use App\Models\FormUser;
 use App\Models\Submission;
 use Exception;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -153,10 +154,6 @@ class SubmissionController extends Controller
      * Display the specified submission.
      * @throws AuthorizationException
      */
-    /**
-     * Display the specified submission.
-     * @throws AuthorizationException
-     */
     public function showSubmission(Form $form, Submission $submission): View
     {
         $this->authorize('view', $submission);
@@ -181,6 +178,25 @@ class SubmissionController extends Controller
 
         // Key the submission values by 'form_field_id' for easy access
         $submissionValues = $submission->values->keyBy('form_field_id');
+
+        // Determine the back link based on user role
+        $backLink = '';
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $isFormOwner = $form->user_id == $userId;
+            $isFormUser = FormUser::where('form_id', $form->id)->where('user_id', $userId)->exists();
+            $isSubmissionOwner = $submission->user_id == $userId;
+
+            if ($isFormOwner || $isFormUser) {
+                $backLink = route('submissions.index', $form);
+            } elseif ($isSubmissionOwner) {
+                $backLink = route('submissions.user');
+            } else {
+                $backLink = route('submissions.user'); // Default fallback
+            }
+        } else {
+            $backLink = route('homepage'); // Fallback for guests
+        }
 
         // Prepare categories with their fields and values
         $categories = $form->categories->map(function ($category) use ($submissionValues, $submission) {
@@ -217,10 +233,10 @@ class SubmissionController extends Controller
         return view('submissions.show', [
             'form' => $form,
             'submission' => $submission,
-            'categories' => $categories
+            'categories' => $categories,
+            'backLink' => $backLink
         ]);
     }
-
 
     /**
      * Display a listing of submissions for the authenticated user.
