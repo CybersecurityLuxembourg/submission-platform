@@ -129,6 +129,7 @@ jobs:
           ENDSSH
 
       - name: Optional Pandora installation
+        if: env.VALIDATION_PANDORA_ENABLED == 'true'
         run: |
             ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
                 ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} \
