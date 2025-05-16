@@ -13,3 +13,5 @@ docker compose \
   -f "$PROJECT_ROOT/docker-compose.yml" \
   -f "$PROJECT_ROOT/docker/pandora/pandora.yml" \
   up -d --pull always --quiet-pull
+
+  
