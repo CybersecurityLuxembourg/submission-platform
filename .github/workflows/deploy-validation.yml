@@ -5,6 +5,9 @@ on:
     branches: [ dev ]
   workflow_dispatch:
 
+env:
+  PANDORA_ENABLED: ${{ secrets.VALIDATION_PANDORA_ENABLED }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -124,3 +127,9 @@ jobs:
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh
           ENDSSH
+
+      - name: Optional Pandora installation
+        run: |
+            ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
+                ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} \
+                "bash /var/www/test.applications.nc3.lu/scripts/setup-pandora.sh $PANDORA_ENABLED '${{ secrets.PROXY }}'"       
