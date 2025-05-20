@@ -484,38 +484,31 @@ class SubmissionForm extends Component
     }
 
     /**
-     * Handle form submission
-     * @throws Exception
+     * Submit the form
      */
     public function submit(): void
     {
-        $this->validate($this->rules(), [], $this->fieldLabels());
-
         try {
+            // Validate all form data
+            $this->validate($this->getValidationRules());
+            
             DB::beginTransaction();
-
-            // Create new submission for non-authenticated users or if no draft exists
-            if (!$this->submission || !$this->submission->exists) {
+            
+            if (!$this->submission) {
                 $this->submission = new Submission([
                     'form_id' => $this->form->id,
+                    'user_id' => auth()->id(),
                     'status' => 'submitted',
-                    'last_activity' => now(),
+                    'submitted_at' => now(),
                 ]);
-
-                if (auth()->check()) {
-                    $this->submission->user_id = auth()->id();
-                }
-
                 $this->submission->save();
             } else {
-                // Update existing submission (e.g., from draft)
-                $this->submission->update([
-                    'status' => 'submitted',
-                    'last_activity' => now(),
-                ]);
+                $this->submission->status = 'submitted';
+                $this->submission->submitted_at = now();
+                $this->submission->save();
             }
             
-            // Save checkbox values as they are (they're already arrays in the UI)
+            // Store submission values
             foreach ($this->fieldValues as $fieldId => $value) {
                 if (is_array($value)) {
                     // This is likely a checkbox field
@@ -578,8 +571,13 @@ class SubmissionForm extends Component
     /**
      * Handle permanent file storage after submission
      */
-    protected function handleFileUploads(FileScanService $scanService): void
+    protected function handleFileUploads(?FileScanService $scanService = null): void
     {
+        // If no scan service was provided, try to resolve it from the container
+        if (!$scanService) {
+            $scanService = app(FileScanService::class);
+        }
+        
         foreach ($this->fieldValues as $fieldId => $value) {
             // Skip if value is not a string (e.g., arrays from checkboxes)
             if (!is_string($value)) {
@@ -629,6 +627,7 @@ class SubmissionForm extends Component
                     $scanResultData = $scanService->scanFile($uploadedFileForScan);
 
                     if ($scanResultData['success']) {
+                        // Store scan results
                         ScanResult::create([
                             'submission_id' => $this->submission->id,
                             'submission_value_id' => $submissionValue->id,
@@ -637,18 +636,26 @@ class SubmissionForm extends Component
                             'scanner_used' => 'pandora',
                             'filename' => $originalName,
                         ]);
-                        Log::info('Scan result saved', [
-                            'submission_id' => $this->submission->id,
-                            'submission_value_id' => $submissionValue->id,
-                            'is_malicious' => $scanResultData['is_malicious']
-                        ]);
-                    } else {
-                        Log::error('File scan failed for permanently stored file', [
-                            'submission_id' => $this->submission->id,
-                            'submission_value_id' => $submissionValue->id,
-                            'filename' => $originalName,
-                            'error' => $scanResultData['message'] ?? 'Unknown scan error'
-                        ]);
+
+                        // If the file is malicious and we're configured to block, we need to handle this
+                        // Since this happens after the file is stored, we'll need to delete it and notify the user
+                        if ($scanResultData['is_malicious'] && config('services.pandora.block_malicious', true)) {
+                            Log::warning('Detected malicious file after upload, removing', [
+                                'submission_id' => $this->submission->id,
+                                'filename' => $originalName,
+                            ]);
+                            
+                            // Remove the file
+                            Storage::disk('private')->delete($newPath);
+                            
+                            // You might want to update the submission value to indicate the file was removed
+                            $submissionValue->update(['value' => '[REMOVED-MALICIOUS]: ' . $originalName]);
+                            
+                            // In a real implementation, you might want to:
+                            // 1. Notify the user via email
+                            // 2. Add a system message to the submission
+                            // 3. Flag the submission for review
+                        }
                     }
                 }
             }

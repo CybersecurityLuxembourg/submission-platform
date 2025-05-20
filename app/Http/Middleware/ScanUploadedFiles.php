@@ -42,27 +42,16 @@ class ScanUploadedFiles
                 if (is_array($fileOrFiles)) {
                     foreach ($fileOrFiles as $singleFile) {
                         if ($singleFile instanceof \Illuminate\Http\UploadedFile) {
-                            $this->processFile($singleFile, $inputName, $request);
+                            $scanResult = $this->scanFile($singleFile, $inputName, $request);
+                            if ($scanResult) {
+                                return $scanResult;
+                            }
                         }
                     }
                 } elseif ($fileOrFiles instanceof \Illuminate\Http\UploadedFile) {
-                    $scanResult = $this->scanService->scanFile($fileOrFiles);
-                    if (config('services.pandora.block_malicious', true) && 
-                        $scanResult['success'] && 
-                        $scanResult['is_malicious']) {
-                        
-                        Log::warning('Blocked malicious file upload', [
-                            'filename' => $fileOrFiles->getClientOriginalName(),
-                            'scan_results' => $scanResult['scan_results'] ?? [],
-                        ]);
-                        
-                        // Return a generic error, specific field errors might be hard to map here
-                        return response()->json([
-                            'message' => 'The uploaded file (' . $fileOrFiles->getClientOriginalName() . ') appears to be malicious and has been blocked.',
-                            'errors' => [
-                                $inputName => ['The file \'' . $fileOrFiles->getClientOriginalName() . '\' has been flagged as potentially malicious and cannot be uploaded.']
-                            ]
-                        ], 422);
+                    $scanResult = $this->scanFile($fileOrFiles, $inputName, $request);
+                    if ($scanResult) {
+                        return $scanResult;
                     }
                 }
             }
@@ -97,8 +86,7 @@ class ScanUploadedFiles
                         ], 422);
                     }
                 }
-            } else { // Single file for a field_id
-                if (!$fileOrFiles instanceof \Illuminate\Http\UploadedFile) continue;
+            } elseif ($fileOrFiles instanceof \Illuminate\Http\UploadedFile) {
                 $scanResult = $this->scanService->scanFile($fileOrFiles);
                 if (config('services.pandora.block_malicious', true) && 
                     $scanResult['success'] && 
@@ -121,5 +109,37 @@ class ScanUploadedFiles
         }
         
         return $next($request);
+    }
+    
+    /**
+     * Process and scan a single file
+     * 
+     * @param \Illuminate\Http\UploadedFile $file The file to scan
+     * @param string $inputName The name of the input field
+     * @param Request $request The request object
+     * @return Response|null Response object if file is malicious, null otherwise
+     */
+    protected function scanFile(\Illuminate\Http\UploadedFile $file, string $inputName, Request $request): ?Response
+    {
+        $scanResult = $this->scanService->scanFile($file);
+        
+        if (config('services.pandora.block_malicious', true) && 
+            $scanResult['success'] && 
+            $scanResult['is_malicious']) {
+            
+            Log::warning('Blocked malicious file upload', [
+                'filename' => $file->getClientOriginalName(),
+                'scan_results' => $scanResult['scan_results'] ?? [],
+            ]);
+            
+            return response()->json([
+                'message' => 'The uploaded file (' . $file->getClientOriginalName() . ') appears to be malicious and has been blocked.',
+                'errors' => [
+                    $inputName => ['The file \'' . $file->getClientOriginalName() . '\' has been flagged as potentially malicious and cannot be uploaded.']
+                ]
+            ], 422);
+        }
+        
+        return null;
     }
 } 
