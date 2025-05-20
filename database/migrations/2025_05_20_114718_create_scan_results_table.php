@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('scan_results', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('submission_id');
-            $table->uuid('submission_value_id'); // Changed from foreignId to uuid to match plan
+            $table->unsignedBigInteger('submission_value_id'); // Changed from uuid to unsignedBigInteger to match submission_values table
             $table->boolean('is_malicious')->default(false);
             $table->json('scan_results')->nullable();
             $table->string('scanner_used')->default('pandora');
