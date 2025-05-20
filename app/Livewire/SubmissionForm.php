@@ -4,6 +4,10 @@ namespace App\Livewire;
 
 use App\Models\Form;
 use App\Models\Submission;
+use App\Models\ScanResult;
+use App\Services\FileScanService;
+use App\Models\SubmissionValues;
+use App\Models\FormField;
 use Exception;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -13,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Illuminate\Http\UploadedFile as IlluminateUploadedFile;
 
 class SubmissionForm extends Component
 {
@@ -573,11 +578,17 @@ class SubmissionForm extends Component
     /**
      * Handle permanent file storage after submission
      */
-    protected function handleFileUploads(): void
+    protected function handleFileUploads(FileScanService $scanService): void
     {
         foreach ($this->fieldValues as $fieldId => $value) {
             // Skip if value is not a string (e.g., arrays from checkboxes)
             if (!is_string($value)) {
+                continue;
+            }
+
+            // Check if this field is actually a file type and the value looks like a temp path
+            $fieldModel = FormField::find($fieldId);
+            if (!$fieldModel || $fieldModel->type !== 'file') {
                 continue;
             }
             
@@ -585,12 +596,61 @@ class SubmissionForm extends Component
                 $newPath = "submissions/{$this->submission->id}/" . basename($value);
                 Storage::disk('private')->move($value, $newPath);
 
-                $this->submission->values()->updateOrCreate(
+                // Update the submission value with the new path
+                $submissionValue = $this->submission->values()->updateOrCreate(
                     ['form_field_id' => $fieldId],
                     ['value' => $newPath]
                 );
 
-                $this->fieldValues[$fieldId] = $newPath;
+                $this->fieldValues[$fieldId] = $newPath; // Update component state
+
+                // After successfully moving the file, scan it
+                if (config('services.pandora.enabled', true)) {
+                    $fullStoragePath = Storage::disk('private')->path($newPath);
+                    $originalName = basename($newPath); // Or get original name if stored elsewhere
+                    $mimeType = Storage::disk('private')->mimeType($newPath);
+
+                    // Create an Illuminate\Http\UploadedFile instance for the scan service
+                    $uploadedFileForScan = new IlluminateUploadedFile(
+                        $fullStoragePath,
+                        $originalName,
+                        $mimeType,
+                        null, // Error code, null for no error
+                        true // Set to true to indicate this is a test file (prevents move attempts)
+                    );
+
+                    Log::info('Scanning file after upload', [
+                        'submission_id' => $this->submission->id,
+                        'submission_value_id' => $submissionValue->id,
+                        'filename' => $originalName,
+                        'path' => $newPath
+                    ]);
+
+                    $scanResultData = $scanService->scanFile($uploadedFileForScan);
+
+                    if ($scanResultData['success']) {
+                        ScanResult::create([
+                            'submission_id' => $this->submission->id,
+                            'submission_value_id' => $submissionValue->id,
+                            'is_malicious' => $scanResultData['is_malicious'],
+                            'scan_results' => $scanResultData['scan_results'],
+                            'scanner_used' => 'pandora',
+                            'filename' => $originalName,
+                        ]);
+                        Log::info('Scan result saved', [
+                            'submission_id' => $this->submission->id,
+                            'submission_value_id' => $submissionValue->id,
+                            'is_malicious' => $scanResultData['is_malicious']
+                        ]);
+                    } else {
+                        Log::error('File scan failed for permanently stored file', [
+                            'submission_id' => $this->submission->id,
+                            'submission_value_id' => $submissionValue->id,
+                            'filename' => $originalName,
+                            'error' => $scanResultData['message'] ?? 'Unknown scan error'
+                        ]);
+                    }
+                }
             }
         }
     }

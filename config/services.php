@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'pandora' => [
+        'url' => env('PANDORA_URL', 'http://pandora:6100'),
+        'enabled' => env('PANDORA_ENABLED', true),
+        'block_malicious' => env('PANDORA_BLOCK_MALICIOUS', true),
+    ],
+
 ];

@@ -173,8 +173,8 @@ class SubmissionController extends Controller
             },
         ]);
 
-        // Load the submission values
-        $submission->load('values');
+        // Load the submission values and their scan results
+        $submission->load('values.scanResult', 'values.field');
 
         // Key the submission values by 'form_field_id' for easy access
         $submissionValues = $submission->values->keyBy('form_field_id');
@@ -203,6 +203,7 @@ class SubmissionController extends Controller
             // Map over the category's fields
             $fields = $category->fields->map(function ($field) use ($submissionValues, $submission) {
                 $value = $submissionValues->get($field->id);
+                $scanResult = $value ? $value->scanResult : null;
 
                 $displayValue = null;
                 if ($value) {
@@ -218,7 +219,9 @@ class SubmissionController extends Controller
                 return [
                     'label' => $field->label,
                     'type' => $field->type,
+                    'value' => $value ? $value->value : null,
                     'displayValue' => $displayValue,
+                    'scanResult' => $scanResult,
                 ];
             });
 

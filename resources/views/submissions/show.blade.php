@@ -26,9 +26,16 @@
                                     <h4 class="text-md font-medium text-gray-700 dark:text-gray-300">{{ $field['label'] }}</h4>
                                     @if($field['type'] === 'file')
                                         @if($field['displayValue'])
-                                            <a href="{{ $field['displayValue'] }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                                                View Uploaded File
-                                            </a>
+                                            <div class="flex items-center space-x-2">
+                                                <a href="{{ $field['displayValue'] }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                                    {{ basename($field['value']) }}
+                                                </a>
+                                                @if(isset($field['scanResult']))
+                                                    <x-scan-result-badge :scanResult="$field['scanResult']" />
+                                                @else 
+                                                    <x-scan-result-badge :scanResult="null" />
+                                                @endif
+                                            </div>
                                         @else
                                             <p class="text-gray-500 dark:text-gray-400">No file uploaded</p>
                                         @endif
