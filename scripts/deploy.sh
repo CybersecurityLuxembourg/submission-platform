@@ -39,9 +39,6 @@ echo "Database connection details:"
 echo "Host: db"
 echo "Database: ${DB_DATABASE}"
 echo "Username: ${DB_USERNAME}"
-# Start Docker services
-echo "Starting Docker services..."
-docker-compose --env-file docker-compose.env up -d
 
 # Function to wait for MySQL to be ready
 wait_for_mysql() {
@@ -76,27 +73,25 @@ FLUSH PRIVILEGES;
 EOF
 }
 
-
 # Check MySQL container logs
 echo "Checking MySQL container logs..."
 docker-compose logs db
 
+# Wait for MySQL to be ready
+if ! wait_for_mysql; then
+    echo "❌ MySQL failed to become ready"
+    docker-compose logs db
+    exit 1
+fi
 
-## Initialize database
-#echo "Setting up database..."
-#if ! initialize_database; then
-#    echo "❌ Failed to initialize database"
-#    echo "MySQL logs:"
-#    docker-compose logs db
-#    exit 1
-#fi
-#
-## Verify database connection using non-root user
-#echo "Verifying database connection..."
-#if ! docker-compose exec db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "SELECT 1" "$MYSQL_DATABASE"' &> /dev/null; then
-#    echo "❌ Failed to connect to database with application user"
-#    exit 1
-#fi
+# Initialize database
+echo "Setting up database..."
+if ! initialize_database; then
+    echo "❌ Failed to initialize database"
+    echo "MySQL logs:"
+    docker-compose logs db
+    exit 1
+fi
 
 echo "✅ Database setup completed successfully!"
 

@@ -17,11 +17,11 @@ services:
         networks:
             - app_network
         healthcheck:
-            test: ["CMD", "mysql", "-h", "localhost", "-u${DB_USERNAME}", "-p${DB_PASSWORD}", "-e", "select 1"]
+            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
             interval: 10s
             timeout: 5s
-            retries: 12
-            start_period: 60s
+            retries: 5
+            start_period: 30s
     app:
         build:
             context: .
@@ -41,7 +41,8 @@ services:
             - storage_data:/var/www/html/storage
             - ./public:/var/www/html/public
         depends_on:
-            - db
+            db:
+                condition: service_healthy
         networks:
             - app_network
 
