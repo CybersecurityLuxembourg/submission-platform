@@ -16,6 +16,12 @@ services:
             - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
         networks:
             - app_network
+        healthcheck:
+            test: ["CMD", "mysql", "-h", "localhost", "-u${DB_USERNAME}", "-p${DB_PASSWORD}", "-e", "select 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 60s
     app:
         build:
             context: .
