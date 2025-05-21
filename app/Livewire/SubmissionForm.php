@@ -490,7 +490,7 @@ class SubmissionForm extends Component
     {
         try {
             // Validate all form data
-            $this->validate($this->getValidationRules());
+            $this->validate($this->rules(), [], $this->fieldLabels());
             
             DB::beginTransaction();
             
