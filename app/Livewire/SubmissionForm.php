@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Http\UploadedFile as IlluminateUploadedFile;
+use Illuminate\Validation\ValidationException
 
 class SubmissionForm extends Component
 {
@@ -272,13 +273,33 @@ class SubmissionForm extends Component
         try {
             $path = $value->store('temp-submissions', 'private');
             $this->fieldValues[$fieldId] = $path;
+          
+            if (array_key_exists($key, $this->tempFiles)) {
+                 $this->tempFiles[$key] = null;
+            }
+    
             $this->dispatch('success', 'File uploaded successfully');
-        } catch (Exception $e) {
-            Log::error('File upload failed', [
+        } catch (ValidationException $e) {
+            
+            Log::error('Livewire file validation failed during upload for key: ' . $key, [
                 'error' => $e->getMessage(),
+                'errors' => $e->errors(),
                 'field_id' => $fieldId
             ]);
-            $this->dispatch('error', 'Failed to upload file: ' . $e->getMessage());
+            // Propagate errors to Livewire's error bag if not already there.
+            foreach ($e->errors() as $errorKey => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError($errorKey, $message);
+                }
+            }
+        } catch (Exception $e) {
+            Log::error('File upload processing failed in updatedTempFiles for key: ' . $key, [
+                'error' => $e->getMessage(),
+                'field_id' => $fieldId,
+                'trace' => $e->getTraceAsString() // Full trace can be verbose, but useful for debugging
+            ]);
+            // Use $key for addError as it matches the wire:model target, e.g., "tempFiles.field_117"
+            $this->addError($key, 'Failed to upload or process file. Please try again. If the issue persists, contact support.');
         }
     }
 
@@ -499,12 +520,10 @@ class SubmissionForm extends Component
                     'form_id' => $this->form->id,
                     'user_id' => auth()->id(),
                     'status' => 'submitted',
-                    'submitted_at' => now(),
                 ]);
                 $this->submission->save();
             } else {
                 $this->submission->status = 'submitted';
-                $this->submission->submitted_at = now();
                 $this->submission->save();
             }
             
