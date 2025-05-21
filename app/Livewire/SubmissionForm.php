@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Illuminate\Http\UploadedFile as IlluminateUploadedFile;
-use Illuminate\Validation\ValidationException
+use Illuminate\Validation\ValidationException;
 
 class SubmissionForm extends Component
 {
