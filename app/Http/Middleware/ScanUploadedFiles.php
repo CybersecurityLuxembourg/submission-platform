@@ -4,6 +4,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\FileScanService;
+use Illuminate\Http\UploadedFile;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -41,14 +42,14 @@ class ScanUploadedFiles
             foreach($allFiles as $inputName => $fileOrFiles) {
                 if (is_array($fileOrFiles)) {
                     foreach ($fileOrFiles as $singleFile) {
-                        if ($singleFile instanceof \Illuminate\Http\UploadedFile) {
+                        if ($singleFile instanceof UploadedFile) {
                             $scanResult = $this->scanFile($singleFile, $inputName, $request);
                             if ($scanResult) {
                                 return $scanResult;
                             }
                         }
                     }
-                } elseif ($fileOrFiles instanceof \Illuminate\Http\UploadedFile) {
+                } elseif ($fileOrFiles instanceof UploadedFile) {
                     $scanResult = $this->scanFile($fileOrFiles, $inputName, $request);
                     if ($scanResult) {
                         return $scanResult;
@@ -66,7 +67,7 @@ class ScanUploadedFiles
             
             if (is_array($fileOrFiles)) { // Handles multiple files for a single field_id
                 foreach ($fileOrFiles as $singleFile) {
-                     if (!$singleFile instanceof \Illuminate\Http\UploadedFile) continue;
+                     if (!$singleFile instanceof UploadedFile) continue;
                     $scanResult = $this->scanService->scanFile($singleFile);
                     if (config('services.pandora.block_malicious', true) && 
                         $scanResult['success'] && 
@@ -86,7 +87,7 @@ class ScanUploadedFiles
                         ], 422);
                     }
                 }
-            } elseif ($fileOrFiles instanceof \Illuminate\Http\UploadedFile) {
+            } elseif ($fileOrFiles instanceof UploadedFile) {
                 $scanResult = $this->scanService->scanFile($fileOrFiles);
                 if (config('services.pandora.block_malicious', true) && 
                     $scanResult['success'] && 
@@ -114,12 +115,12 @@ class ScanUploadedFiles
     /**
      * Process and scan a single file
      * 
-     * @param \Illuminate\Http\UploadedFile $file The file to scan
+     * @param UploadedFile $file The file to scan
      * @param string $inputName The name of the input field
      * @param Request $request The request object
      * @return Response|null Response object if file is malicious, null otherwise
      */
-    protected function scanFile(\Illuminate\Http\UploadedFile $file, string $inputName, Request $request): ?Response
+    protected function scanFile(UploadedFile $file, string $inputName, Request $request): ?Response
     {
         $scanResult = $this->scanService->scanFile($file);
         

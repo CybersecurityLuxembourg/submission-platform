@@ -672,54 +672,61 @@ class SubmissionForm extends Component
 
         foreach ($this->form->categories as $category) {
             foreach ($category->fields as $field) {
-                $fieldRules = [];
-
-                // Add required rule if field is required
+                $fieldValueRules = [];
+                // Base rules: required or nullable for fieldValues
                 if ($field->required) {
-                    $fieldRules[] = 'required';
+                    $fieldValueRules[] = 'required';
                 } else {
-                    $fieldRules[] = 'nullable';
+                    $fieldValueRules[] = 'nullable';
                 }
 
-                // Add type-specific rules
+                // Type-specific rules for fieldValues and tempFiles
                 switch ($field->type) {
                     case 'text':
                     case 'textarea':
-                        $fieldRules[] = 'string';
+                        $fieldValueRules[] = 'string';
                         if (!empty($field->char_limit)) {
-                            $fieldRules[] = "max:{$field->char_limit}";
+                            $fieldValueRules[] = "max:{$field->char_limit}";
                         }
                         break;
 
                     case 'select':
                     case 'radio':
-                        $fieldRules[] = 'string';
+                        $fieldValueRules[] = 'string';
                         if (!empty($field->options)) {
-                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
+                             // Assuming $field->options is a comma-separated string like "Option1,Option2"
+                            $fieldValueRules[] = 'in:' . $field->options;
                         }
                         break;
 
                     case 'checkbox':
-                        $fieldRules[] = 'array';
-                        if (!empty($field->options)) {
-                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
-                        }
+                        $fieldValueRules[] = 'array';
+                        // Add individual checkbox option validation if necessary
+                        // For example, if fieldValues.{$field->id} is an array of selected values:
+                        // $fieldValueRules[] = 'in:' . $field->options; (applied to * elements)
                         break;
 
                     case 'file':
-                        $fieldRules[] = 'file';
-                        $fieldRules[] = 'max:' . self::MAX_FILE_SIZE;
-                        $fieldRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        // Rules for the fieldValues entry (which is a path string)
+                        $fieldValueRules[] = 'string'; // It stores a path
+                        
+                        // Rules for the tempFiles entry (Livewire's actual file upload object)
+                        $tempFileRules = [];
+                        // tempFile is required only if the field itself is required AND no file is already uploaded (no path in fieldValues)
+                        if ($field->required && empty($this->fieldValues[$field->id])) {
+                            $tempFileRules[] = 'required'; 
+                        } else {
+                            $tempFileRules[] = 'nullable';
+                        }
+                        $tempFileRules[] = 'file'; // Ensures it's an actual file object
+                        $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
+                        $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
                         break;
                 }
 
-                // Add rules for field values
-                $rules["fieldValues.{$field->id}"] = $fieldRules;
-
-                // Add rules for file uploads
-                if ($field->type === 'file') {
-                    $rules["tempFiles.field_{$field->id}"] = $fieldRules;
-                }
+                // Assign accumulated rules for fieldValues.{$field->id}
+                $rules["fieldValues.{$field->id}"] = $fieldValueRules;
             }
         }
 
