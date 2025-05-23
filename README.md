@@ -67,7 +67,7 @@ For general inquiries:
 
 
 ## Roadmap
-- CLAM AV integration for file uploads
+- Pandora integration for file uploads
 - Access links for specific emails which need to be confirmed via an unique code which is sent via mail
 - Custom Workflow definition after a submission
     - Who shall do what

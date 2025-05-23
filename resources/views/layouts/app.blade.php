@@ -77,17 +77,31 @@
         @livewireScripts
 
         <!-- Footer -->
-        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-auto py-4">
+        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-auto py-6 border-t border-gray-200 dark:border-gray-700">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex flex-col md:flex-row justify-between items-center space-y-2 md:space-y-0">
-                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                        &copy; {{ date('Y') }} Luxembourg House of Cybersecurity. All rights reserved.
+                <div class="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+                    <!-- Left section: Copyright and EU Logo -->
+                    <div class="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6 text-center sm:text-left">
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            &copy; {{ date('Y') }} Luxembourg House of Cybersecurity. All rights reserved.
+                        </div>
+                        <div class="flex items-center justify-center">
+                            <img 
+                                src="{{ asset('img/co-funded-eu-logo.png') }}" 
+                                alt="Co-funded by the European Union" 
+                                class="h-10 sm:h-8 w-auto opacity-95 hover:opacity-100 transition-all duration-200 eu-logo"
+                                loading="lazy"
+                                title="This project is co-funded by the European Union"
+                            />
+                        </div>
                     </div>
-                    <div class="flex space-x-4 text-sm">
-                        <a href="{{ route('terms.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                    
+                    <!-- Right section: Links -->
+                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6 text-sm">
+                        <a href="{{ route('terms.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left">
                             Terms of Service
                         </a>
-                        <a href="{{ route('policy.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200">
+                        <a href="{{ route('policy.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left">
                             Privacy Policy
                         </a>
                     </div>
