@@ -85,14 +85,17 @@
                         <div class="text-sm text-gray-600 dark:text-gray-400">
                             &copy; {{ date('Y') }} Luxembourg House of Cybersecurity. All rights reserved.
                         </div>
-                        <div class="flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center space-y-1">
                             <img 
                                 src="{{ asset('img/co-funded-eu-logo.png') }}" 
                                 alt="Co-funded by the European Union" 
-                                class="h-10 sm:h-8 w-auto opacity-95 hover:opacity-100 transition-all duration-200 eu-logo"
+                                class="h-12 w-auto opacity-95 hover:opacity-100 transition-all duration-200 eu-logo"
                                 loading="lazy"
-                                title="This project is co-funded by the European Union"
+                                title="This project is co-funded by the European Union's Digital Europe Programme"
                             />
+                            <div class="text-xs text-gray-500 dark:text-gray-500 text-center max-w-xs">
+                                This project is co-funded by the European Union's Digital Europe Programme under Grant Agreement No. 1011227115.
+                            </div>
                         </div>
                     </div>
                     
