@@ -713,34 +713,39 @@ class SubmissionForm extends Component
                     case 'radio':
                         $fieldValueRules[] = 'string';
                         if (!empty($field->options)) {
-                             // Assuming $field->options is a comma-separated string like "Option1,Option2"
-                            $fieldValueRules[] = 'in:' . $field->options;
+                            // Split the options and validate against individual options
+                            $optionsArray = array_map('trim', explode(',', $field->options));
+                            $fieldValueRules[] = 'in:' . implode(',', $optionsArray);
                         }
                         break;
 
                     case 'checkbox':
                         $fieldValueRules[] = 'array';
-                        // Add individual checkbox option validation if necessary
-                        // For example, if fieldValues.{$field->id} is an array of selected values:
-                        // $fieldValueRules[] = 'in:' . $field->options; (applied to * elements)
+                        // Validate that each checkbox value is boolean
+                        if (!empty($field->options)) {
+                            $rules["fieldValues.{$field->id}.*"] = 'boolean';
+                        }
                         break;
 
                     case 'file':
                         // Rules for the fieldValues entry (which is a path string)
                         $fieldValueRules[] = 'string'; // It stores a path
                         
-                        // Rules for the tempFiles entry (Livewire's actual file upload object)
-                        $tempFileRules = [];
-                        // tempFile is required only if the field itself is required AND no file is already uploaded (no path in fieldValues)
-                        if ($field->required && empty($this->fieldValues[$field->id])) {
-                            $tempFileRules[] = 'required'; 
-                        } else {
-                            $tempFileRules[] = 'nullable';
+                        // Only validate tempFiles if no file path exists in fieldValues
+                        if (empty($this->fieldValues[$field->id])) {
+                            // Rules for the tempFiles entry (Livewire's actual file upload object)
+                            $tempFileRules = [];
+                            // tempFile is required only if the field itself is required
+                            if ($field->required) {
+                                $tempFileRules[] = 'required'; 
+                            } else {
+                                $tempFileRules[] = 'nullable';
+                            }
+                            $tempFileRules[] = 'file'; // Ensures it's an actual file object
+                            $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
+                            $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                            $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
                         }
-                        $tempFileRules[] = 'file'; // Ensures it's an actual file object
-                        $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
-                        $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
-                        $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
                         break;
                 }
 

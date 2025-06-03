@@ -93,7 +93,7 @@
                                 loading="lazy"
                                 title="This project is co-funded by the European Union's Digital Europe Programme"
                             />
-                            <div class="text-xs text-gray-500 dark:text-gray-500 text-center max-w-xs">
+                            <div class="text-xs text-gray-500 dark:text-gray-100 text-center max-w-xs">
                                 This project is co-funded by the European Union's Digital Europe Programme under Grant Agreement No. 1011227115.
                             </div>
                         </div>
