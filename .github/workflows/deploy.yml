@@ -46,6 +46,21 @@ jobs:
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
           cd /var/www/applications.nc3.lu
 
+          # Clean up only this application's containers to resolve ContainerConfig issues
+          echo "Cleaning up application containers..."
+          
+          # Stop and remove only this project's containers
+          docker-compose down --remove-orphans || true
+          
+          # Remove specific containers if they still exist
+          docker rm -f nc3_app nc3_db 2>/dev/null || true
+          
+          # Remove only this project's built images (keep MySQL image as it's reusable)
+          docker images --filter "reference=*nc3lu_app*" -q | xargs -r docker rmi -f || true
+          docker images --filter "reference=*applications.nc3.lu*" -q | xargs -r docker rmi -f || true
+          
+          # Clean up dangling images from this build only
+          docker images --filter "dangling=true" --filter "label=project=nc3" -q | xargs -r docker rmi -f || true
 
           # Create .env file
           cat > .env << 'EOL'
@@ -110,8 +125,18 @@ jobs:
           EOL
           chmod 644 docker-compose.env
 
-          # Extract build artifacts and deploy
+          # Extract build artifacts and deploy with forced rebuild
           unzip -o build_artifacts.zip
           chmod +x scripts/deploy.sh
-          ./scripts/deploy.sh
+          
+          # Force rebuild and deploy without cache
+          echo "Starting deployment with forced rebuild..."
+          DOCKER_BUILDKIT=1 docker-compose build --no-cache --pull
+          docker-compose up -d --force-recreate --remove-orphans
+          
+          # Run any additional deployment steps
+          if [ -f "scripts/deploy.sh" ]; then
+            echo "Running deployment script..."
+            ./scripts/deploy.sh
+          fi
           ENDSSH
