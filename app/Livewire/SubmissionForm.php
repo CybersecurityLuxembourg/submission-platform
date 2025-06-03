@@ -628,30 +628,53 @@ class SubmissionForm extends Component
                     case 'radio':
                         $fieldRules[] = 'string';
                         if (!empty($field->options)) {
-                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
+                              // Split the options and validate against individual options
+                            $optionsArray = array_map('trim', explode(',', $field->options));
+                            $fieldRules[] = 'in:' . implode(',', $optionsArray);
                         }
                         break;
 
                     case 'checkbox':
                         $fieldRules[] = 'array';
                         if (!empty($field->options)) {
-                            $fieldRules[] = 'in:' . implode(',', array_keys($field->options));
+                            $rules["fieldValues.{$field->id}.*"] = 'boolean';
                         }
                         break;
 
                     case 'file':
-                        $fieldRules[] = 'file';
-                        $fieldRules[] = 'max:' . self::MAX_FILE_SIZE;
-                        $fieldRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        // For file fields, fieldValues might contain paths (existing files) or be empty
+                        // Only validate as string/path when it exists
+                        if (isset($this->fieldValues[$field->id]) && is_string($this->fieldValues[$field->id])) {
+                            $fieldRules[] = 'string';
+                        } else {
+                            // If no existing file, remove required rule as tempFiles will handle new uploads
+                            $fieldRules = array_filter($fieldRules, fn($rule) => $rule !== 'required');
+                            $fieldRules[] = 'nullable';
+                        }
+                        
+                        // Add validation rules for new file uploads
+                        $tempFileRules = [];
+                        if ($field->required && !isset($this->fieldValues[$field->id])) {
+                            $tempFileRules[] = 'required';
+                        } else {
+                            $tempFileRules[] = 'nullable';
+                        }
+                        $tempFileRules[] = 'file';
+                        $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
+                        $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        
+                        $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
                         break;
                 }
 
-                // Add rules for field values
-                $rules["fieldValues.{$field->id}"] = $fieldRules;
-
-                // Add rules for file uploads
-                if ($field->type === 'file') {
-                    $rules["tempFiles.field_{$field->id}"] = $fieldRules;
+                // Add rules for field values (skip files as they're handled above)
+                if ($field->type !== 'file') {
+                    $rules["fieldValues.{$field->id}"] = $fieldRules;
+                } else {
+                    // For file fields, only validate fieldValues if it contains a path
+                    if (!empty($fieldRules)) {
+                        $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    }
                 }
             }
         }
