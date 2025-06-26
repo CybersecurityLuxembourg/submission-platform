@@ -88,8 +88,9 @@ jobs:
       
       - name: Create deployment artifacts
         run: |
-          tar -czf build_artifacts.tar.gz public/build
-          tar -czf app_artifacts.tar.gz \
+          # Create artifacts in /tmp to avoid the "file changed" error
+          tar -czf /tmp/build_artifacts.tar.gz public/build
+          tar -czf /tmp/app_artifacts.tar.gz \
             --exclude='node_modules' \
             --exclude='.git' \
             --exclude='.github' \
@@ -97,6 +98,9 @@ jobs:
             --exclude='storage/app/*' \
             --exclude='storage/logs/*' \
             .
+          # Move artifacts back to current directory for upload
+          mv /tmp/build_artifacts.tar.gz .
+          mv /tmp/app_artifacts.tar.gz .
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -243,6 +247,8 @@ jobs:
           # Run post-deployment checks
           docker-compose exec -T app php artisan health:check
           
+          # Check application is responding
+          curl -f -s -o /dev/null -w "%{http_code}" https://applications.nc3.lu/health || exit 1
           ENDSSH
       
       - name: Notify deployment status
