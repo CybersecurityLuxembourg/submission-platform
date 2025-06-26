@@ -7,8 +7,15 @@ use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\SubmissionExportController;
 use App\Http\Controllers\WorkflowController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HealthController;
 use App\Http\Middleware\FormAccessMiddleware;
 use Illuminate\Support\Facades\Route;
+
+// Health check routes (no authentication required for Docker/Kubernetes)
+Route::get('/livez', [HealthController::class, 'liveness'])->name('health.liveness');
+Route::get('/readyz', [HealthController::class, 'readiness'])->name('health.readiness');
+Route::get('/healthz', [HealthController::class, 'health'])->name('health.check');
+Route::get('/startup', [HealthController::class, 'startup'])->name('health.startup');
 
 // Public routes (no authentication required)
 Route::get('/', [FormController::class, 'index'])

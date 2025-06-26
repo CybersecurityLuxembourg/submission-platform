@@ -1,36 +1,4 @@
-FROM node:20-alpine AS node-builder
-ARG PROXY
-ENV http_proxy=$PROXY \
-    HTTP_PROXY=$PROXY \
-    https_proxy=$PROXY \
-    HTTPS_PROXY=$PROXY
-
-# Configure npm to use proxy
-RUN npm config set proxy $PROXY \
-    && npm config set https-proxy $PROXY \
-    && npm config set registry https://registry.npmjs.org/
-# Set working directory
-WORKDIR /app
-
-# Add build essentials
-RUN apk add --no-cache python3 make g++
-# Copy package files
-COPY package.json package-lock.json ./
-
-# Copy all necessary config files
-COPY resources/ ./resources/
-COPY vite.config.js ./
-COPY postcss.config.js ./
-COPY tailwind.config.js ./
-
-RUN set -eux; \
-    npm install --prefer-offline --no-audit --no-progress
-
-# Build assets with explicit env
-RUN NODE_ENV=production npm run build
-
-
-# Stage 2: Install PHP dependencies with Composer
+# Stage 1: PHP Dependencies
 FROM composer:2 AS composer-builder
 ARG PROXY
 ENV http_proxy=$PROXY \
@@ -40,64 +8,133 @@ ENV http_proxy=$PROXY \
 
 WORKDIR /app
 
-# Install required PHP extensions
+# Install PHP extensions first (better caching)
 RUN apk add --no-cache \
         icu-dev \
+        libzip-dev \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install intl
+    && docker-php-ext-install intl zip
 
-# Copy composer files first
+# Copy composer files for better layer caching
 COPY composer.json composer.lock ./
 
-# Copy the rest of the application before installing
+# Download dependencies without installing
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts --no-autoloader
+
+# Copy application code
 COPY . .
 
-# Install dependencies without running scripts
-RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
+# Generate optimized autoloader
+RUN composer dump-autoload --optimize --no-dev --classmap-authoritative
 
-# Now run the post-install scripts
-RUN composer run-script post-autoload-dump
-
-# Stage 3: Production image
-FROM php:8.3-fpm-alpine
+# Stage 2: Node Dependencies and Build
+FROM node:20-alpine AS node-builder
 ARG PROXY
 ENV http_proxy=$PROXY \
     HTTP_PROXY=$PROXY \
     https_proxy=$PROXY \
     HTTPS_PROXY=$PROXY
 
-WORKDIR /var/www/html
+WORKDIR /app
 
-# Install system dependencies
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ git
+
+# Configure npm
+RUN npm config set proxy $PROXY \
+    && npm config set https-proxy $PROXY \
+    && npm config set registry https://registry.npmjs.org/
+
+# Copy package files for better caching
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit --no-fund
+
+# Copy source files
+COPY resources/ ./resources/
+COPY vite.config.js postcss.config.js tailwind.config.js ./
+COPY public/ ./public/
+
+# Build production assets
+RUN NODE_ENV=production npm run build
+
+# Stage 3: Production PHP Runtime
+FROM php:8.3-fpm-alpine AS runtime
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
+
+# Install runtime dependencies in one layer
 RUN apk update && apk add --no-cache \
-    git \
     curl \
     libpng-dev \
     oniguruma-dev \
     libxml2-dev \
-    zip \
-    unzip \
+    libzip-dev \
+    icu-dev \
+    freetype-dev \
+    libjpeg-turbo-dev \
+    supervisor \
+    nginx \
     bash \
-    icu-dev
+    shadow \
+    fcgi \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+        pdo_mysql \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        intl \
+        zip \
+        opcache \
+        sockets \
+    && rm -rf /var/cache/apk/*
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
-    docker-php-ext-configure intl && \
-    docker-php-ext-install intl
-
-# Configure opcache
+# Configure PHP
+COPY docker/php/php.ini /usr/local/etc/php/php.ini
+COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
-# Copy application files
-COPY --from=composer-builder /app /var/www/html
-COPY --from=node-builder /app/public/build /var/www/html/public/build
+# Create non-root user
+RUN addgroup -g 1000 -S laravel && \
+    adduser -u 1000 -S laravel -G laravel
 
-RUN mkdir -p /var/www/html/storage/framework/{sessions,views,cache} \
-    && mkdir -p /var/www/html/storage/logs \
-    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Set working directory
+WORKDIR /var/www/html
 
-VOLUME /var/www/html/storage
-# Expose port and start PHP-FPM
+# Copy application from builder stages
+COPY --from=composer-builder --chown=laravel:laravel /app /var/www/html
+COPY --from=node-builder --chown=laravel:laravel /app/public/build /var/www/html/public/build
+
+# Create required directories with proper permissions
+RUN mkdir -p storage/framework/{sessions,views,cache} \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache \
+    && chown -R laravel:laravel storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
+
+# Copy supervisor configuration
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Health check script
+COPY docker/health-check.sh /usr/local/bin/health-check
+RUN chmod +x /usr/local/bin/health-check
+
+# Switch to non-root user
+USER laravel
+
+# Expose port
 EXPOSE 9000
-CMD ["php-fpm"]
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
+    CMD /usr/local/bin/health-check || exit 1
+
+# Start services
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

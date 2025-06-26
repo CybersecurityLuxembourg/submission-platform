@@ -4,104 +4,197 @@ on:
   push:
     branches: [ master ]
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    if: github.event.inputs.skip_tests != 'true'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql
+          coverage: xdebug
+      
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+      
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+      
+      - name: Run tests
+        run: |
+          php artisan test --parallel
+          php artisan test:coverage --min=80
+      
+      - name: Run static analysis
+        run: |
+          ./vendor/bin/phpstan analyse
+          ./vendor/bin/psalm
 
-
-      - name: Install dependencies and build
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      
+      - name: Install dependencies and build assets
         run: |
           npm ci
           npm run build
-          zip -r build_artifacts.zip public/build
-
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
+      
+      - name: Create deployment artifacts
+        run: |
+          tar -czf build_artifacts.tar.gz public/build
+          tar -czf app_artifacts.tar.gz \
+            --exclude='node_modules' \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='tests' \
+            --exclude='storage/app/*' \
+            --exclude='storage/logs/*' \
+            .
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          key: ${{ secrets.PRODUCTION_ENV_SSH_PRIVATE_KEY }}
-          known_hosts: 'placeholder'
-          if_key_exists: replace
+          name: deployment-artifacts
+          path: |
+            build_artifacts.tar.gz
+            app_artifacts.tar.gz
+          retention-days: 7
 
-      - name: Adding known hosts on source host from bastion host
-        run: ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Adding known hosts on source host from target host
-        run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
-
-
-      - name: Sync Files to Server
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: production
+      url: https://applications.nc3.lu
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-artifacts
+      
+      - name: Configure SSH
         run: |
-          rsync -avz --delete \
-          -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
-          --exclude 'node_modules' \
-          --exclude '.git' \
-          --exclude '.github' \
-          --exclude 'tests' \
-          ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
-      - name: Create Configuration Files and Deploy
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRODUCTION_ENV_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
+          
+          # Configure SSH to use the bastion
+          cat >> ~/.ssh/config << EOF
+          Host bastion
+            HostName ${{ secrets.BASTION_HOST }}
+            Port ${{ secrets.BASTION_SSH_PORT }}
+            User ${{ secrets.BASTION_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+          
+          Host production
+            HostName ${{ secrets.PRODUCTION_ENV_HOST }}
+            User ${{ secrets.SERVER_USERNAME }}
+            ProxyJump bastion
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+          EOF
+      
+      - name: Deploy to server
         run: |
-          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
-          cd /var/www/applications.nc3.lu
-
-          # Clean up only this application's containers to resolve ContainerConfig issues
-          echo "Cleaning up application containers..."
+          # Create deployment directory with timestamp
+          DEPLOYMENT_DIR="/var/www/applications.nc3.lu/deployments/$(date +%Y%m%d_%H%M%S)"
+          CURRENT_LINK="/var/www/applications.nc3.lu/current"
           
-          # Stop and remove only this project's containers
-          docker-compose down --remove-orphans || true
+          ssh production "mkdir -p $DEPLOYMENT_DIR"
           
-          # Remove specific containers if they still exist
-          docker rm -f nc3_app nc3_db 2>/dev/null || true
+          # Transfer artifacts
+          scp app_artifacts.tar.gz production:$DEPLOYMENT_DIR/
+          scp build_artifacts.tar.gz production:$DEPLOYMENT_DIR/
           
-          # Remove only this project's built images (keep MySQL image as it's reusable)
-          docker images --filter "reference=*nc3lu_app*" -q | xargs -r docker rmi -f || true
-          docker images --filter "reference=*applications.nc3.lu*" -q | xargs -r docker rmi -f || true
+          # Execute deployment
+          ssh production << 'ENDSSH'
+          set -e
           
-          # Clean up dangling images from this build only
-          docker images --filter "dangling=true" --filter "label=project=nc3" -q | xargs -r docker rmi -f || true
-
-          # Create .env file
+          DEPLOYMENT_DIR="$1"
+          CURRENT_LINK="$2"
+          APP_DIR="/var/www/applications.nc3.lu"
+          
+          cd $DEPLOYMENT_DIR
+          
+          # Extract artifacts
+          tar -xzf app_artifacts.tar.gz
+          tar -xzf build_artifacts.tar.gz
+          rm -f *.tar.gz
+          
+          # Create environment files
           cat > .env << 'EOL'
           APP_NAME="NC3's Application Platform"
           APP_ENV=production
           APP_KEY=${{ secrets.APP_KEY }}
           APP_DEBUG=false
           APP_URL=https://applications.nc3.lu
-          APP_LOCALE=en
-          APP_FALLBACK_LOCALE=en
-          APP_FAKER_LOCALE=en_US
-          ASSET_URL=https://applications.nc3.lu
-
-          APP_MAINTENANCE_DRIVER=file
-          BCRYPT_ROUNDS=12
-
-          LOG_CHANNEL=stack
-          LOG_STACK=single
-          LOG_DEPRECATIONS_CHANNEL=null
-          LOG_LEVEL=debug
-
+          
           DB_CONNECTION=mysql
           DB_HOST=db
           DB_PORT=3306
           DB_DATABASE=${{ secrets.DB_DATABASE }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-
-          SESSION_DRIVER=database
-          SESSION_LIFETIME=120
-          SESSION_ENCRYPT=false
-          SESSION_PATH=/
-          SESSION_DOMAIN=null
-
-          BROADCAST_CONNECTION=log
-          FILESYSTEM_DISK=local
-          QUEUE_CONNECTION=database
-
-          CACHE_STORE=database
-          CACHE_PREFIX=
-
+          
+          REDIS_HOST=redis
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+          
+          CACHE_DRIVER=redis
+          SESSION_DRIVER=redis
+          QUEUE_CONNECTION=redis
+          
           MAIL_MAILER=smtp
           MAIL_HOST=mail.mbox.lu
           MAIL_PORT=587
@@ -109,34 +202,57 @@ jobs:
           MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
           MAIL_ENCRYPTION=tls
           MAIL_FROM_ADDRESS=app@nc3.lu
-          MAIL_FROM_NAME="NC3's Application Platform"
-
-          VITE_APP_NAME="NC3's Application Platform"
+          MAIL_FROM_NAME="${APP_NAME}"
           EOL
-          chmod 644 .env
-
-          # Create docker-compose.env file
+          
           cat > docker-compose.env << 'EOL'
           DB_DATABASE=${{ secrets.DB_DATABASE }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           PROXY=${{ secrets.PROXY }}
+          DOCKER_REGISTRY=${{ secrets.DOCKER_REGISTRY }}
           EOL
-          chmod 644 docker-compose.env
-
-          # Extract build artifacts and deploy with forced rebuild
-          unzip -o build_artifacts.zip
-          chmod +x scripts/deploy.sh
           
-          # Force rebuild and deploy without cache
-          echo "Starting deployment with forced rebuild..."
-          DOCKER_BUILDKIT=1 docker-compose build --no-cache --pull
-          docker-compose up -d --force-recreate --remove-orphans
+          # Link shared directories
+          ln -nfs $APP_DIR/shared/storage/app storage/app
+          ln -nfs $APP_DIR/shared/storage/logs storage/logs
           
-          # Run any additional deployment steps
-          if [ -f "scripts/deploy.sh" ]; then
-            echo "Running deployment script..."
-            ./scripts/deploy.sh
+          # Deploy using enhanced script
+          cd $APP_DIR
+          ./scripts/deploy.sh $DEPLOYMENT_DIR
+          
+          # If successful, update symlink
+          if [ $? -eq 0 ]; then
+              ln -nfs $DEPLOYMENT_DIR $CURRENT_LINK
+              
+              # Clean up old deployments (keep last 5)
+              cd $APP_DIR/deployments
+              ls -t | tail -n +6 | xargs -r rm -rf
+          else
+              echo "Deployment failed, not updating current symlink"
+              exit 1
           fi
           ENDSSH
+      
+      - name: Verify deployment
+        run: |
+          ssh production << 'ENDSSH'
+          cd /var/www/applications.nc3.lu/current
+          
+          # Run post-deployment checks
+          docker-compose exec -T app php artisan health:check
+          
+          ENDSSH
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "Deployment successful!"
+            # Add Slack/Discord/Email notification here
+          else
+            echo "Deployment failed!"
+            # Add failure notification here
+          fi

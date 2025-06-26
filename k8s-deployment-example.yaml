@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: submission-platform
+  labels:
+    app: submission-platform
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: submission-platform
+  template:
+    metadata:
+      labels:
+        app: submission-platform
+    spec:
+      containers:
+      - name: app
+        image: submission-platform:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: APP_ENV
+          value: "production"
+        - name: APP_DEBUG
+          value: "false"
+        
+        # Startup probe - checks if the application has started
+        # Useful for applications that have long startup times
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: 8000
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30  # Allow up to 5 minutes for startup
+          successThreshold: 1
+        
+        # Liveness probe - determines if container should be restarted
+        # Should only fail if the application itself is broken
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 8000
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        # Readiness probe - determines if container is ready to serve traffic
+        # Can fail when dependencies are unavailable
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        
+        # Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-platform-service
+  labels:
+    app: submission-platform
+spec:
+  selector:
+    app: submission-platform
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+
+---
+# Example of a separate monitoring service for full health checks
+apiVersion: v1
+kind: Service
+metadata:
+  name: submission-platform-monitoring
+  labels:
+    app: submission-platform
+    purpose: monitoring
+spec:
+  selector:
+    app: submission-platform
+  ports:
+  - name: health
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP 
