@@ -11,30 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22.14'
-          cache: 'npm'
 
       - name: Install dependencies and build
         run: |
           npm ci
           npm run build
-          
-          # Create deployment package with all necessary files
-          mkdir -p deployment_package
-          cp -r public/build deployment_package/
-          cp docker-compose.yml deployment_package/
-          cp Dockerfile deployment_package/
-          cp -r scripts deployment_package/
-          cp package*.json deployment_package/
-          cp medusa-config.ts deployment_package/
-          cp -r src deployment_package/
-          cp start.sh deployment_package/
-          
-          # Create tarball for more reliable transfer
-          tar -czf deployment.tar.gz deployment_package/
+          zip -r build_artifacts.zip public/build
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
@@ -43,53 +25,44 @@ jobs:
           known_hosts: 'placeholder'
           if_key_exists: replace
 
-      - name: Setup SSH Known Hosts
-        run: |
-          ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
-          ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} \
-            "ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }}" >> ~/.ssh/known_hosts
+      - name: Adding known hosts on source host from bastion host
+        run: ssh-keyscan -p ${{ secrets.BASTION_SSH_PORT }} -H ${{ secrets.BASTION_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Transfer Deployment Package
-        run: |
-          # Transfer the deployment package
-          scp -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
-            deployment.tar.gz \
-            ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/tmp/
+      - name: Adding known hosts on source host from target host
+        run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy Application
+
+      - name: Sync Files to Server
         run: |
-          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
-            ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
-          set -e
+          rsync -avz --delete \
+          -e "ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }}" \
+          --exclude 'node_modules' \
+          --exclude '.git' \
+          --exclude '.github' \
+          --exclude 'tests' \
+          ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
+      - name: Create Configuration Files and Deploy
+        run: |
+          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
+          cd /var/www/applications.nc3.lu
+
+          # Clean up only this application's containers to resolve ContainerConfig issues
+          echo "Cleaning up application containers..."
           
-          # Define deployment directory
-          APP_DIR="/var/www/applications.nc3.lu"
+          # Stop and remove only this project's containers
+          docker-compose down --remove-orphans || true
           
-          # Create backup of current deployment
-          if [ -d "$APP_DIR" ]; then
-            echo "Creating backup of current deployment..."
-            BACKUP_DIR="/var/backups/applications.nc3.lu/$(date +%Y%m%d_%H%M%S)"
-            mkdir -p "$BACKUP_DIR"
-            cp -r "$APP_DIR"/{.env,docker-compose.env,storage} "$BACKUP_DIR/" 2>/dev/null || true
-          fi
+          # Remove specific containers if they still exist
+          docker rm -f nc3_app nc3_db 2>/dev/null || true
           
-          # Extract new deployment
-          cd /tmp
-          tar -xzf deployment.tar.gz
+          # Remove only this project's built images (keep MySQL image as it's reusable)
+          docker images --filter "reference=*nc3lu_app*" -q | xargs -r docker rmi -f || true
+          docker images --filter "reference=*applications.nc3.lu*" -q | xargs -r docker rmi -f || true
           
-          # Ensure directory exists
-          mkdir -p "$APP_DIR"
-          
-          # Copy files to deployment directory
-          rsync -av --delete \
-            --exclude 'storage' \
-            --exclude '.env' \
-            --exclude 'docker-compose.env' \
-            deployment_package/ "$APP_DIR/"
-          
-          cd "$APP_DIR"
-          
-          # Create .env file with proper formatting
+          # Clean up dangling images from this build only
+          docker images --filter "dangling=true" --filter "label=project=nc3" -q | xargs -r docker rmi -f || true
+
+          # Create .env file
           cat > .env << 'EOL'
           APP_NAME="NC3's Application Platform"
           APP_ENV=production
@@ -107,7 +80,7 @@ jobs:
           LOG_CHANNEL=stack
           LOG_STACK=single
           LOG_DEPRECATIONS_CHANNEL=null
-          LOG_LEVEL=error
+          LOG_LEVEL=debug
 
           DB_CONNECTION=mysql
           DB_HOST=db
@@ -140,7 +113,8 @@ jobs:
 
           VITE_APP_NAME="NC3's Application Platform"
           EOL
-          
+          chmod 644 .env
+
           # Create docker-compose.env file
           cat > docker-compose.env << 'EOL'
           DB_DATABASE=${{ secrets.DB_DATABASE }}
@@ -149,20 +123,20 @@ jobs:
           MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
           PROXY=${{ secrets.PROXY }}
           EOL
-          
-          # Set proper permissions
-          chmod 644 .env docker-compose.env
-          
-          # Enable Docker BuildKit
-          export DOCKER_BUILDKIT=1
-          export COMPOSE_DOCKER_CLI_BUILD=1
-          
-          # Run the enhanced deployment script
+          chmod 644 docker-compose.env
+
+          # Extract build artifacts and deploy with forced rebuild
+          unzip -o build_artifacts.zip
           chmod +x scripts/deploy.sh
-          ./scripts/deploy.sh
           
-          # Cleanup
-          rm -f /tmp/deployment.tar.gz
-          rm -rf /tmp/deployment_package
+          # Force rebuild and deploy without cache
+          echo "Starting deployment with forced rebuild..."
+          DOCKER_BUILDKIT=1 docker-compose build --no-cache --pull
+          docker-compose up -d --force-recreate --remove-orphans
           
+          # Run any additional deployment steps
+          if [ -f "scripts/deploy.sh" ]; then
+            echo "Running deployment script..."
+            ./scripts/deploy.sh
+          fi
           ENDSSH
