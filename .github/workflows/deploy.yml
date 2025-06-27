@@ -151,25 +151,27 @@ jobs:
       
       - name: Deploy to server
         run: |
-          # Create deployment directory with timestamp
-          DEPLOYMENT_DIR="/var/www/applications.nc3.lu/deployments/$(date +%Y%m%d_%H%M%S)"
+          # Set SSH options for security and quiet operation
+          export SSH_OPTIONS="-q -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR"
+          export SCP_OPTIONS="-q -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR"
+          
+          # Define deployment paths
+          DEPLOYMENT_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          DEPLOYMENT_DIR="/var/www/applications.nc3.lu/deployments/${DEPLOYMENT_TIMESTAMP}"
           CURRENT_LINK="/var/www/applications.nc3.lu/current"
-          
-          ssh production "mkdir -p $DEPLOYMENT_DIR"
-          
-          # Transfer artifacts
-          scp app_artifacts.tar.gz production:$DEPLOYMENT_DIR/
-          scp build_artifacts.tar.gz production:$DEPLOYMENT_DIR/
-          
-          # Execute deployment
-          ssh production << 'ENDSSH'
-          set -e
-          
-          DEPLOYMENT_DIR="$1"
-          CURRENT_LINK="$2"
           APP_DIR="/var/www/applications.nc3.lu"
           
-          cd $DEPLOYMENT_DIR
+          ssh $SSH_OPTIONS production "mkdir -p ${DEPLOYMENT_DIR}"
+          
+          # Transfer artifacts
+          scp $SCP_OPTIONS app_artifacts.tar.gz production:${DEPLOYMENT_DIR}/
+          scp $SCP_OPTIONS build_artifacts.tar.gz production:${DEPLOYMENT_DIR}/
+          
+          # Execute deployment
+          ssh $SSH_OPTIONS production bash << ENDSSH
+          set -euo pipefail
+
+          cd ${DEPLOYMENT_DIR}
           
           # Extract artifacts
           tar -xzf app_artifacts.tar.gz
@@ -182,6 +184,7 @@ jobs:
           APP_ENV=production
           APP_KEY=${{ secrets.APP_KEY }}
           APP_DEBUG=false
+          APP_LOCALE=en
           APP_URL=https://applications.nc3.lu
           
           DB_CONNECTION=mysql
@@ -218,23 +221,28 @@ jobs:
           DOCKER_REGISTRY=${{ secrets.DOCKER_REGISTRY }}
           EOL
           
-          # Link shared directories
-          ln -nfs $APP_DIR/shared/storage/app storage/app
-          ln -nfs $APP_DIR/shared/storage/logs storage/logs
+          # Set proper permissions
+          chmod 644 .env docker-compose.env
           
-          # Deploy using enhanced script
+          # Create storage symlinks if they don't exist
+          mkdir -p ${APP_DIR}/shared/storage/app ${APP_DIR}/shared/storage/logs
+          
+          # Deploy using deploy.sh script
           cd $APP_DIR
-          ./scripts/deploy.sh $DEPLOYMENT_DIR
+          [ -f scripts/deploy.sh ] && chmod +x scripts/deploy.sh
           
-          # If successful, update symlink
-          if [ $? -eq 0 ]; then
-              ln -nfs $DEPLOYMENT_DIR $CURRENT_LINK
+          if ./scripts/deploy.sh; then
+              # Update the current symlink on success
+              ln -nfs ${DEPLOYMENT_DIR} ${CURRENT_LINK}
               
               # Clean up old deployments (keep last 5)
-              cd $APP_DIR/deployments
+              cd ${APP_DIR}/deployments
               ls -t | tail -n +6 | xargs -r rm -rf
+              
+              echo "✅ Deployment ${DEPLOYMENT_TIMESTAMP} completed successfully!"
+              exit 0
           else
-              echo "Deployment failed, not updating current symlink"
+              echo "❌ Deployment ${DEPLOYMENT_TIMESTAMP} failed!"
               exit 1
           fi
           ENDSSH
