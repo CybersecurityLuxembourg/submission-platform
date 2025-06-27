@@ -20,6 +20,18 @@ warning() {
     echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1"
 }
 
+# Detect Docker Compose version and set the command
+if command -v docker compose &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+    log "Using Docker Compose v2"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+    log "Using Docker Compose v1"
+else
+    error "Docker Compose is not installed"
+    exit 1
+fi
+
 # Trap errors
 trap 'error "Script failed at line $LINENO"' ERR
 
@@ -64,16 +76,20 @@ fi
 
 # Stop existing containers gracefully
 log "Stopping existing containers..."
-docker-compose --env-file docker-compose.env down --timeout 30 || true
+$DOCKER_COMPOSE --env-file docker-compose.env down --timeout 30 || true
 
-# Clean up specific containers and images (preserving data volumes)
-log "Cleaning up old containers and images..."
-docker rm -f nc3_app 2>/dev/null || true
-docker image prune -f --filter "label=project=nc3"
+# Clean up containers and volumes to avoid ContainerConfig errors
+log "Cleaning up old containers and orphaned volumes..."
+docker rm -f nc3_app nc3_db 2>/dev/null || true
+docker volume prune -f 2>/dev/null || true
+docker image prune -f --filter "label=project=nc3" 2>/dev/null || true
+
+# Remove any problematic container metadata
+docker system prune -f --volumes 2>/dev/null || true
 
 # Build with BuildKit
 log "Building Docker images with BuildKit..."
-if ! DOCKER_BUILDKIT=1 docker-compose --env-file docker-compose.env build --no-cache --pull; then
+if ! DOCKER_BUILDKIT=1 $DOCKER_COMPOSE --env-file docker-compose.env build --no-cache --pull; then
     error "Docker build failed"
     
     # Fallback: Try building without mount cache
@@ -84,7 +100,7 @@ if ! DOCKER_BUILDKIT=1 docker-compose --env-file docker-compose.env build --no-c
     mv Dockerfile Dockerfile.original
     mv Dockerfile.no-cache Dockerfile
     
-    if ! docker-compose --env-file docker-compose.env build --no-cache --pull; then
+    if ! $DOCKER_COMPOSE --env-file docker-compose.env build --no-cache --pull; then
         mv Dockerfile.original Dockerfile
         error "Build failed even without cache mounts"
         exit 1
@@ -93,19 +109,18 @@ if ! DOCKER_BUILDKIT=1 docker-compose --env-file docker-compose.env build --no-c
     mv Dockerfile.original Dockerfile
 fi
 
-# Start services
+# Start services (without --no-recreate to avoid ContainerConfig issues)
 log "Starting Docker services..."
-docker-compose --env-file docker-compose.env up -d --no-recreate db
-docker-compose --env-file docker-compose.env up -d app
+$DOCKER_COMPOSE --env-file docker-compose.env up -d db
 
-# Function to wait for MySQL with proper health check
+# Wait for database to be ready before starting app
 wait_for_mysql() {
     log "Waiting for MySQL to be ready..."
     local max_attempts=60
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if docker-compose --env-file docker-compose.env exec -T db \
+        if $DOCKER_COMPOSE --env-file docker-compose.env exec -T db \
             mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null; then
             log "✅ MySQL is ready!"
             return 0
@@ -119,7 +134,7 @@ wait_for_mysql() {
     done
     
     error "MySQL failed to become ready after ${max_attempts} attempts"
-    docker-compose --env-file docker-compose.env logs --tail=50 db
+    $DOCKER_COMPOSE --env-file docker-compose.env logs --tail=50 db
     return 1
 }
 
@@ -131,7 +146,7 @@ fi
 
 # Initialize database schema
 log "Initializing database schema..."
-docker-compose --env-file docker-compose.env exec -T db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" << EOF
+$DOCKER_COMPOSE --env-file docker-compose.env exec -T db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" << EOF
 CREATE DATABASE IF NOT EXISTS \`${DB_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USERNAME}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON \`${DB_DATABASE}\`.* TO '${DB_USERNAME}'@'%';
@@ -140,18 +155,22 @@ EOF
 
 # Verify database connection
 log "Verifying database connection..."
-if ! docker-compose --env-file docker-compose.env exec -T db \
+if ! $DOCKER_COMPOSE --env-file docker-compose.env exec -T db \
     mysql -u"${DB_USERNAME}" -p"${DB_PASSWORD}" -e "SELECT 1" "${DB_DATABASE}" > /dev/null 2>&1; then
     error "Failed to connect to database with application user"
     exit 1
 fi
+
+# Now start the app container
+log "Starting application container..."
+$DOCKER_COMPOSE --env-file docker-compose.env up -d app
 
 # Wait for application container to be ready
 log "Waiting for application container..."
 max_attempts=30
 attempt=0
 while [ $attempt -lt $max_attempts ]; do
-    if docker-compose --env-file docker-compose.env exec -T app echo "ready" > /dev/null 2>&1; then
+    if $DOCKER_COMPOSE --env-file docker-compose.env exec -T app echo "ready" > /dev/null 2>&1; then
         break
     fi
     attempt=$((attempt + 1))
@@ -161,27 +180,27 @@ done
 # For Laravel application
 if [ -f artisan ]; then
     log "Running Laravel migrations..."
-    if ! docker-compose --env-file docker-compose.env exec -T app php artisan migrate --force; then
+    if ! $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan migrate --force; then
         error "Migration failed"
-        docker-compose --env-file docker-compose.env logs --tail=50 app
+        $DOCKER_COMPOSE --env-file docker-compose.env logs --tail=50 app
         exit 1
     fi
     
     log "Optimizing Laravel application..."
-    docker-compose --env-file docker-compose.env exec -T app php artisan config:cache
-    docker-compose --env-file docker-compose.env exec -T app php artisan route:cache
-    docker-compose --env-file docker-compose.env exec -T app php artisan view:cache
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan config:cache
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan route:cache
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan view:cache
 fi
 
 # Health check
 log "Performing health check..."
-if docker-compose --env-file docker-compose.env ps | grep -E "(Exit|unhealthy)"; then
+if $DOCKER_COMPOSE --env-file docker-compose.env ps | grep -E "(Exit|unhealthy)"; then
     error "Some containers are not healthy"
-    docker-compose --env-file docker-compose.env ps
-    docker-compose --env-file docker-compose.env logs --tail=50
+    $DOCKER_COMPOSE --env-file docker-compose.env ps
+    $DOCKER_COMPOSE --env-file docker-compose.env logs --tail=50
     exit 1
 fi
 
 log "✅ Deployment completed successfully!"
 log "Services running:"
-docker-compose --env-file docker-compose.env ps
+$DOCKER_COMPOSE --env-file docker-compose.env ps

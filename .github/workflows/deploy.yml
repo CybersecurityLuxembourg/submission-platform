@@ -109,7 +109,7 @@ jobs:
           path: |
             build_artifacts.tar.gz
             app_artifacts.tar.gz
-          retention-days: 7
+          retention-days: 2
 
   deploy:
     runs-on: ubuntu-latest
