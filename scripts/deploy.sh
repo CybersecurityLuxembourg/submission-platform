@@ -46,18 +46,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Detect Docker Compose version and set the command
-if command -v docker compose &> /dev/null; then
-    DOCKER_COMPOSE="docker compose"
-    COMPOSE_VERSION="v2"
-    log "Using Docker Compose v2"
-elif command -v docker-compose &> /dev/null; then
-    DOCKER_COMPOSE="docker-compose"
-    COMPOSE_VERSION="v1"
-    warning "Using Docker Compose v1 (consider upgrading to v2 to avoid ContainerConfig errors)"
-else
-    error "Docker Compose is not installed"
-    exit 1
-fi
+DOCKER_COMPOSE="docker compose"
+COMPOSE_VERSION="v2"
 
 # Trap errors
 trap 'error "Script failed at line $LINENO"' ERR
@@ -351,12 +341,3 @@ $DOCKER_COMPOSE --env-file docker-compose.env ps
 
 # Clean up
 rm -f /tmp/docker-build.log /tmp/docker-up.log 2>/dev/null || true
-
-# Suggest upgrade if using v1
-if [ "$COMPOSE_VERSION" = "v1" ]; then
-    echo ""
-    warning "You are using docker-compose v1 which has known issues with ContainerConfig"
-    warning "Consider upgrading to Docker Compose v2:"
-    warning "  sudo apt-get update && sudo apt-get install docker-compose-plugin"
-    warning "Or download from: https://github.com/docker/compose/releases"
-fi
