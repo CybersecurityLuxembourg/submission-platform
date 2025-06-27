@@ -1,212 +1,187 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Color output
+# Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Logging function
 log() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
 
 error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
+    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1" >&2
 }
 
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+warning() {
+    echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1"
 }
 
-# Deployment configuration
-DEPLOYMENT_ID=$(date +%s)
-HEALTH_CHECK_RETRIES=30
-HEALTH_CHECK_INTERVAL=5
+# Trap errors
+trap 'error "Script failed at line $LINENO"' ERR
 
-log "🚀 Starting deployment process (ID: $DEPLOYMENT_ID)..."
+log "🚀 Starting enhanced deployment process..."
 
-# Load environment variables
-if [ -f docker-compose.env ]; then
-    log "Loading environment variables..."
-    set -a
-    source docker-compose.env
-    set +a
-    success "Environment variables loaded"
-else
+# Enable BuildKit
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Verify environment files exist
+if [ ! -f docker-compose.env ]; then
     error "docker-compose.env file not found"
     exit 1
 fi
 
+if [ ! -f .env ]; then
+    error ".env file not found"
+    exit 1
+fi
+
+# Load and verify environment variables
+log "Loading environment variables..."
+set -a
+source docker-compose.env
+set +a
+
 # Verify required variables
 required_vars=("DB_DATABASE" "DB_USERNAME" "DB_PASSWORD" "MYSQL_ROOT_PASSWORD")
 for var in "${required_vars[@]}"; do
-    if [ -z "${!var}" ]; then
+    if [ -z "${!var:-}" ]; then
         error "Required variable $var is not set"
         exit 1
     fi
 done
+log "✅ All required environment variables are set"
 
-# Function to check if a service is healthy
-check_service_health() {
-    local service=$1
-    local max_attempts=$2
-    local interval=$3
+# Docker health check
+if ! docker info > /dev/null 2>&1; then
+    error "Docker daemon is not running"
+    exit 1
+fi
+
+# Stop existing containers gracefully
+log "Stopping existing containers..."
+docker-compose --env-file docker-compose.env down --timeout 30 || true
+
+# Clean up specific containers and images (preserving data volumes)
+log "Cleaning up old containers and images..."
+docker rm -f nc3_app 2>/dev/null || true
+docker image prune -f --filter "label=project=nc3"
+
+# Build with BuildKit
+log "Building Docker images with BuildKit..."
+if ! DOCKER_BUILDKIT=1 docker-compose --env-file docker-compose.env build --no-cache --pull; then
+    error "Docker build failed"
+    
+    # Fallback: Try building without mount cache
+    warning "Attempting build without cache mounts..."
+    
+    # Create a modified Dockerfile without mount options
+    sed 's/RUN --mount=[^ ]* /RUN /g' Dockerfile > Dockerfile.no-cache
+    mv Dockerfile Dockerfile.original
+    mv Dockerfile.no-cache Dockerfile
+    
+    if ! docker-compose --env-file docker-compose.env build --no-cache --pull; then
+        mv Dockerfile.original Dockerfile
+        error "Build failed even without cache mounts"
+        exit 1
+    fi
+    
+    mv Dockerfile.original Dockerfile
+fi
+
+# Start services
+log "Starting Docker services..."
+docker-compose --env-file docker-compose.env up -d --no-recreate db
+docker-compose --env-file docker-compose.env up -d app
+
+# Function to wait for MySQL with proper health check
+wait_for_mysql() {
+    log "Waiting for MySQL to be ready..."
+    local max_attempts=60
     local attempt=0
     
-    log "Checking health of $service..."
-    
     while [ $attempt -lt $max_attempts ]; do
-        if docker-compose exec -T $service sh -c 'exit 0' &> /dev/null; then
-            if [ "$service" = "db" ]; then
-                if docker-compose exec -T db sh -c 'mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"' &> /dev/null; then
-                    success "$service is healthy!"
-                    return 0
-                fi
-            elif [ "$service" = "app" ]; then
-                if docker-compose exec -T app php artisan --version &> /dev/null; then
-                    success "$service is healthy!"
-                    return 0
-                fi
-            fi
+        if docker-compose --env-file docker-compose.env exec -T db \
+            mysqladmin ping -h localhost -u root -p"${MYSQL_ROOT_PASSWORD}" --silent 2>/dev/null; then
+            log "✅ MySQL is ready!"
+            return 0
         fi
         
-        attempt=$((attempt+1))
-        log "Attempt $attempt/$max_attempts: $service not ready yet..."
-        sleep $interval
+        attempt=$((attempt + 1))
+        if [ $((attempt % 10)) -eq 0 ]; then
+            log "Still waiting for MySQL... (${attempt}/${max_attempts})"
+        fi
+        sleep 2
     done
     
-    error "$service failed health check"
+    error "MySQL failed to become ready after ${max_attempts} attempts"
+    docker-compose --env-file docker-compose.env logs --tail=50 db
     return 1
 }
 
-# Function to run database migrations with rollback capability
-run_migrations() {
-    log "Running database migrations..."
-    
-    # First, check migration status
-    if ! docker-compose exec -T app php artisan migrate:status; then
-        error "Failed to check migration status"
-        return 1
-    fi
-    
-    # Run migrations with --step flag for easier rollback
-    if ! docker-compose exec -T app php artisan migrate --force --step; then
-        error "Migration failed"
-        return 1
-    fi
-    
-    success "Migrations completed successfully"
-    return 0
-}
+# Wait for database
+if ! wait_for_mysql; then
+    error "Database initialization failed"
+    exit 1
+fi
 
-# Function to perform health checks on the application
-app_health_check() {
-    log "Performing application health checks..."
-    
-    # Check Laravel configuration
-    if ! docker-compose exec -T app php artisan config:cache; then
-        error "Configuration cache failed"
-        return 1
-    fi
-    
-    # Check database connectivity
-    if ! docker-compose exec -T app php artisan db:show; then
-        error "Database connectivity check failed"
-        return 1
-    fi
-    
-    # Check if app can serve requests (you should add a /health endpoint)
-    # if ! curl -f http://localhost:9000/health; then
-    #     error "HTTP health check failed"
-    #     return 1
-    # fi
-    
-    success "All health checks passed"
-    return 0
-}
-
-# Main deployment process
-main() {
-    # Build new images
-    log "Building Docker images..."
-    if ! docker-compose build --parallel; then
-        error "Docker build failed"
-        exit 1
-    fi
-    
-    # Start database if not running
-    if ! docker-compose ps | grep -q "nc3_db.*Up"; then
-        log "Starting database service..."
-        docker-compose up -d db
-        check_service_health "db" $HEALTH_CHECK_RETRIES $HEALTH_CHECK_INTERVAL || exit 1
-    fi
-    
-    # Initialize database if needed
-    log "Checking database initialization..."
-    if ! docker-compose exec -T db sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" -e "SELECT 1" "$MYSQL_DATABASE"' &> /dev/null 2>&1; then
-        log "Initializing database..."
-        docker-compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD"' << EOF
-CREATE DATABASE IF NOT EXISTS \`$DB_DATABASE\`;
-CREATE USER IF NOT EXISTS '$DB_USERNAME'@'%' IDENTIFIED BY '$DB_PASSWORD';
-GRANT ALL PRIVILEGES ON \`$DB_DATABASE\`.* TO '$DB_USERNAME'@'%';
+# Initialize database schema
+log "Initializing database schema..."
+docker-compose --env-file docker-compose.env exec -T db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" << EOF
+CREATE DATABASE IF NOT EXISTS \`${DB_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${DB_USERNAME}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`${DB_DATABASE}\`.* TO '${DB_USERNAME}'@'%';
 FLUSH PRIVILEGES;
 EOF
-        success "Database initialized"
-    fi
-    
-    # Blue-Green deployment for app service
-    log "Starting new application container..."
-    
-    # Scale up to 2 instances (old + new)
-    docker-compose up -d --scale app=2 --no-recreate app
-    
-    # Wait for new container to be healthy
-    sleep 10  # Give new container time to start
-    check_service_health "app" $HEALTH_CHECK_RETRIES $HEALTH_CHECK_INTERVAL || {
-        error "New application container failed to start"
-        docker-compose up -d --scale app=1 app
-        exit 1
-    }
-    
-    # Run migrations on new container
-    if ! run_migrations; then
-        error "Migrations failed, rolling back..."
-        docker-compose up -d --scale app=1 app
-        exit 1
-    fi
-    
-    # Perform health checks
-    if ! app_health_check; then
-        error "Health checks failed, rolling back..."
-        docker-compose exec -T app php artisan migrate:rollback --force
-        docker-compose up -d --scale app=1 app
-        exit 1
-    fi
-    
-    # Clear and warm up caches
-    log "Optimizing application..."
-    docker-compose exec -T app php artisan config:cache
-    docker-compose exec -T app php artisan route:cache
-    docker-compose exec -T app php artisan view:cache
-    docker-compose exec -T app php artisan event:cache
-    
-    # If using queue workers, restart them
-    # docker-compose exec -T app php artisan queue:restart
-    
-    # Remove old container
-    log "Removing old application container..."
-    docker-compose up -d --scale app=1 --no-recreate app
-    
-    # Clean up unused images
-    docker image prune -f
-    
-    # Log deployment completion
-    success "Deployment $DEPLOYMENT_ID completed successfully!"
-    
-    # Send notification (example: Slack, email, etc.)
-    # notify_deployment_success $DEPLOYMENT_ID
-}
 
-# Run main deployment
-main
+# Verify database connection
+log "Verifying database connection..."
+if ! docker-compose --env-file docker-compose.env exec -T db \
+    mysql -u"${DB_USERNAME}" -p"${DB_PASSWORD}" -e "SELECT 1" "${DB_DATABASE}" > /dev/null 2>&1; then
+    error "Failed to connect to database with application user"
+    exit 1
+fi
+
+# Wait for application container to be ready
+log "Waiting for application container..."
+max_attempts=30
+attempt=0
+while [ $attempt -lt $max_attempts ]; do
+    if docker-compose --env-file docker-compose.env exec -T app echo "ready" > /dev/null 2>&1; then
+        break
+    fi
+    attempt=$((attempt + 1))
+    sleep 2
+done
+
+# For Laravel application
+if [ -f artisan ]; then
+    log "Running Laravel migrations..."
+    if ! docker-compose --env-file docker-compose.env exec -T app php artisan migrate --force; then
+        error "Migration failed"
+        docker-compose --env-file docker-compose.env logs --tail=50 app
+        exit 1
+    fi
+    
+    log "Optimizing Laravel application..."
+    docker-compose --env-file docker-compose.env exec -T app php artisan config:cache
+    docker-compose --env-file docker-compose.env exec -T app php artisan route:cache
+    docker-compose --env-file docker-compose.env exec -T app php artisan view:cache
+fi
+
+# Health check
+log "Performing health check..."
+if docker-compose --env-file docker-compose.env ps | grep -E "(Exit|unhealthy)"; then
+    error "Some containers are not healthy"
+    docker-compose --env-file docker-compose.env ps
+    docker-compose --env-file docker-compose.env logs --tail=50
+    exit 1
+fi
+
+log "✅ Deployment completed successfully!"
+log "Services running:"
+docker-compose --env-file docker-compose.env ps
