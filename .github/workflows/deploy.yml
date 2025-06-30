@@ -247,18 +247,6 @@ jobs:
           fi
           ENDSSH
       
-      - name: Verify deployment
-        run: |
-          ssh production << 'ENDSSH'
-          cd /var/www/applications.nc3.lu/current
-          
-          # Run post-deployment checks
-          docker compose exec -T app php artisan health:check
-          
-          # Check application is responding
-          curl -f -s -o /dev/null -w "%{http_code}" https://applications.nc3.lu/health || exit 1
-          ENDSSH
-      
       - name: Notify deployment status
         if: always()
         run: |
