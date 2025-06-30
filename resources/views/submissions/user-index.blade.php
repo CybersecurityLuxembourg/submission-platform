@@ -83,6 +83,11 @@
                                                    class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
                                                     Export PDF
                                                 </a>
+                                                
+                                                <a href="{{ route('submissions.export.single.json', ['form' => $submission->form, 'submission' => $submission]) }}"
+                                                   class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                                                    Export JSON
+                                                </a>
                                             @endcan
                                         </td>
                                     </tr>

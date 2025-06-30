@@ -208,6 +208,20 @@ class SubmissionPolicy
             ->exists();
     }
 
+    /**
+     * Determine whether the user can export their own submissions.
+     */
+    public function exportOwn(User $user, Submission $submission): bool
+    {
+        // Can't export drafts
+        if ($submission->status === 'draft') {
+            return false;
+        }
+
+        // Users can only export their own submissions
+        return $user->id === $submission->user_id;
+    }
+
 
 
 }
