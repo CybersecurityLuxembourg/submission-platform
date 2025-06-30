@@ -62,7 +62,6 @@ services:
         volumes:
             - storage_data:/var/www/html/storage
             - ./public/storage:/var/www/html/public/storage
-            - cache_data:/var/www/html/bootstrap/cache
         depends_on:
             db:
                 condition: service_healthy

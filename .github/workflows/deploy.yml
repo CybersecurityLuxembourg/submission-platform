@@ -253,7 +253,7 @@ jobs:
           cd /var/www/applications.nc3.lu/current
           
           # Run post-deployment checks
-          docker-compose exec -T app php artisan health:check
+          docker compose exec -T app php artisan health:check
           
           # Check application is responding
           curl -f -s -o /dev/null -w "%{http_code}" https://applications.nc3.lu/health || exit 1
