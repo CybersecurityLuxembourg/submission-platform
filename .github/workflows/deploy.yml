@@ -166,6 +166,9 @@ jobs:
           # Transfer artifacts
           scp $SCP_OPTIONS app_artifacts.tar.gz production:${DEPLOYMENT_DIR}/
           scp $SCP_OPTIONS build_artifacts.tar.gz production:${DEPLOYMENT_DIR}/
+          scp $SCP_OPTIONS scripts/deploy.sh production:${DEPLOYMENT_DIR}/
+          scp $SCP_OPTIONS docker-compose.yml production:${DEPLOYMENT_DIR}/
+          scp $SCP_OPTIONS Dockerfile production:${DEPLOYMENT_DIR}/
           
           # Execute deployment
           ssh $SSH_OPTIONS production bash << ENDSSH
@@ -223,7 +226,7 @@ jobs:
           
           # Set proper permissions
           chmod 644 .env docker-compose.env
-          
+          chmod +x deploy.sh
           # Create storage symlinks if they don't exist
           mkdir -p ${APP_DIR}/shared/storage/app ${APP_DIR}/shared/storage/logs
           
@@ -231,7 +234,7 @@ jobs:
           cd $APP_DIR
           [ -f scripts/deploy.sh ] && chmod +x scripts/deploy.sh
           
-          if ./scripts/deploy.sh; then
+          if ./deploy.sh --build-dir "${DEPLOYMENT_DIR}"; then
               # Update the current symlink on success
               ln -nfs ${DEPLOYMENT_DIR} ${CURRENT_LINK}
               

@@ -303,11 +303,56 @@ while [ $attempt -lt $max_attempts ]; do
     sleep 2
 done
 
-# For Laravel application
 if [ -f artisan ]; then
     log "Detected Laravel application"
     
-    # Run migrations
+    log "🧹 Clearing Laravel configuration cache..."
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan config:clear || warning "Config clear failed (may be expected)"
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan cache:clear || warning "Cache clear failed (may be expected)"
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan route:clear || warning "Route clear failed (may be expected)"
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan view:clear || warning "View clear failed (may be expected)"
+    
+    # Verify Laravel can read the database configuration
+    log "🔍 Verifying Laravel database configuration..."
+    $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan tinker --execute="
+    echo 'DB config loaded' . PHP_EOL;
+    echo '- Host: [OK]' . PHP_EOL;
+    echo '- Database: [OK]' . PHP_EOL;
+    echo '- Username: [OK]' . PHP_EOL;
+    "
+    
+    # Test database connection before running migrations
+    log "🔍 Testing database connection..."
+    max_db_attempts=10
+    db_attempt=0
+    while [ $db_attempt -lt $max_db_attempts ]; do
+        if $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan tinker --execute="
+        try {
+            DB::connection()->getPdo();
+            echo '✅ Database connection successful!' . PHP_EOL;
+            exit(0);
+        } catch (Exception \$e) {
+            echo '❌ Database connection failed: ' . \$e->getMessage() . PHP_EOL;
+            exit(1);
+        }
+        " 2>/dev/null; then
+            log "✅ Database connection verified!"
+            break
+        fi
+        
+        db_attempt=$((db_attempt + 1))
+        warning "Database connection attempt $db_attempt/$max_db_attempts failed, retrying..."
+        sleep 3
+    done
+    
+    if [ $db_attempt -eq $max_db_attempts ]; then
+        error "Failed to connect to database after $max_db_attempts attempts"
+        error "Showing app container logs:"
+        $DOCKER_COMPOSE --env-file docker-compose.env logs --tail=20 app
+        exit 1
+    fi
+    
+    # Run migrations (your existing code continues here)
     log "Running migrations..."
     if ! $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan migrate --force; then
         error "Migration failed"
@@ -315,7 +360,7 @@ if [ -f artisan ]; then
         exit 1
     fi
     
-    # Optimize
+    # Optimize (your existing code)
     log "Optimizing Laravel application..."
     $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan config:cache
     $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan route:cache
@@ -325,7 +370,6 @@ if [ -f artisan ]; then
     # Restart queue workers
     $DOCKER_COMPOSE --env-file docker-compose.env exec -T app php artisan queue:restart 2>/dev/null || true
 fi
-
 # Start all other services
 log "Starting all services..."
 $DOCKER_COMPOSE --env-file docker-compose.env up -d
