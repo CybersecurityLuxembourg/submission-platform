@@ -28,6 +28,7 @@ info() {
 # Parse command line arguments
 FORCE_RECREATE=false
 SKIP_DB_CHECK=false
+BUILD_DIR=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --force-recreate)
@@ -38,12 +39,25 @@ while [[ $# -gt 0 ]]; do
             SKIP_DB_CHECK=true
             shift
             ;;
+        --build-dir)
+            BUILD_DIR="$2"
+            shift 2
+            ;;
+        --build-dir=*)
+            BUILD_DIR="${1#*=}"
+            shift
+            ;;
         *)
             warning "Unknown option: $1"
             shift
             ;;
     esac
 done
+
+# Log build directory if provided
+if [ -n "$BUILD_DIR" ]; then
+    info "Build directory specified: $BUILD_DIR"
+fi
 
 # Detect Docker Compose version and set the command
 DOCKER_COMPOSE="docker compose"
@@ -91,6 +105,24 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Function to clean up Docker networks
+cleanup_networks() {
+    info "Cleaning up Docker networks..."
+    
+    # Remove networks from this project
+    local PROJECT_NAME=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
+    
+    # Try to remove networks with various naming patterns
+    docker network ls --format "{{.Name}}" | grep -E "(nc3|${PROJECT_NAME})" | xargs -r docker network rm 2>/dev/null || true
+    
+    # Also try to remove the specific network if it exists
+    docker network rm "${PROJECT_NAME}_app_network" 2>/dev/null || true
+    docker network rm "app_network" 2>/dev/null || true
+    
+    # Prune unused networks
+    docker network prune -f 2>/dev/null || true
+}
+
 # Function to aggressively clean up containers to avoid ContainerConfig errors
 cleanup_containers() {
     local service=$1
@@ -131,7 +163,8 @@ handle_container_config_error() {
     # Also try common patterns
     docker ps -a --format "{{.ID}} {{.Names}}" | grep -E "(nc3|${PROJECT_NAME})" | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
     
-    
+    # Clean up networks as well
+    cleanup_networks
     
     warning "Deep cleanup completed. Retrying deployment..."
 }
@@ -175,10 +208,11 @@ wait_for_mysql() {
 
 # If force recreate is requested, clean everything
 if [ "$FORCE_RECREATE" = true ]; then
-    warning "Force recreate requested - removing all containers"
+    warning "Force recreate requested - removing all containers and networks"
     cleanup_containers "app"
     cleanup_containers "db"
     cleanup_containers "redis"
+    cleanup_networks
 fi
 
 # Handle database container
@@ -197,9 +231,21 @@ if [ "$SKIP_DB_CHECK" = false ]; then
     
     if [ "$DB_NEEDS_START" = true ]; then
         log "Starting database service..."
+        
+        # Clean up networks before starting database
+        cleanup_networks
+        
         if ! $DOCKER_COMPOSE --env-file docker-compose.env up -d db; then
             error "Failed to start database"
-            exit 1
+            
+            # If it failed, try cleaning networks and retrying once
+            warning "Database start failed, cleaning networks and retrying..."
+            cleanup_networks
+            
+            if ! $DOCKER_COMPOSE --env-file docker-compose.env up -d db; then
+                error "Failed to start database after network cleanup"
+                exit 1
+            fi
         fi
         
         if ! wait_for_mysql; then
