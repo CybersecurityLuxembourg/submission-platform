@@ -230,22 +230,26 @@ jobs:
           # Create storage symlinks if they don't exist
           mkdir -p ${APP_DIR}/shared/storage/app ${APP_DIR}/shared/storage/logs
           
-          # Deploy using deploy.sh script
-          cd $APP_DIR
-          [ -f scripts/deploy.sh ] && chmod +x scripts/deploy.sh
-          
-          if ./deploy.sh --build-dir "${DEPLOYMENT_DIR}"; then
-              # Update the current symlink on success
-              ln -nfs ${DEPLOYMENT_DIR} ${CURRENT_LINK}
-              
-              # Clean up old deployments (keep last 5)
-              cd ${APP_DIR}/deployments
-              ls -t | tail -n +6 | xargs -r rm -rf
-              
-              echo "✅ Deployment ${DEPLOYMENT_TIMESTAMP} completed successfully!"
-              exit 0
+          # Deploy using deploy.sh script from the current deployment directory
+          if [ -f deploy.sh ]; then
+              if ./deploy.sh --build-dir "${DEPLOYMENT_DIR}"; then
+                  # Update the current symlink on success
+                  ln -nfs ${DEPLOYMENT_DIR} ${CURRENT_LINK}
+                  
+                  # Clean up old deployments (keep last 5)
+                  cd ${APP_DIR}/deployments
+                  ls -t | tail -n +6 | xargs -r rm -rf
+                  
+                  echo "✅ Deployment ${DEPLOYMENT_TIMESTAMP} completed successfully!"
+                  exit 0
+              else
+                  echo "❌ Deployment ${DEPLOYMENT_TIMESTAMP} failed during deploy.sh execution!"
+                  exit 1
+              fi
           else
-              echo "❌ Deployment ${DEPLOYMENT_TIMESTAMP} failed!"
+              echo "❌ deploy.sh script not found in ${DEPLOYMENT_DIR}!"
+              echo "Available files:"
+              ls -la
               exit 1
           fi
           ENDSSH
