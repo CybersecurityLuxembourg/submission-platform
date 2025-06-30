@@ -232,7 +232,7 @@ jobs:
           
           # Deploy using deploy.sh script from the current deployment directory
           if [ -f deploy.sh ]; then
-              if ./deploy.sh --build-dir "${DEPLOYMENT_DIR}"; then
+              if ./deploy.sh; then
                   # Update the current symlink on success
                   ln -nfs ${DEPLOYMENT_DIR} ${CURRENT_LINK}
                   

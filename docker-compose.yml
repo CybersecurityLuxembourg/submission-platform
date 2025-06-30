@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
     db:
         image: mysql:8.0.36-debian
@@ -134,7 +132,6 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: nc3_queue_worker
         restart: unless-stopped
         command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
         env_file:
