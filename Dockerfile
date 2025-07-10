@@ -1,78 +1,103 @@
-ARG NODE_VERSION=22.14
-FROM node:${NODE_VERSION}-alpine AS base
+FROM node:20-alpine AS node-builder
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
 
-# Add npm cache mount for faster builds
-RUN --mount=type=cache,target=/root/.npm \
-    npm config set cache /root/.npm
+# Configure npm to use proxy
+RUN npm config set proxy $PROXY \
+    && npm config set https-proxy $PROXY \
+    && npm config set registry https://registry.npmjs.org/
+# Set working directory
+WORKDIR /app
 
-FROM base AS deps
-WORKDIR /opt/medusa/deps
-ARG NODE_ENV=production
-ENV NODE_ENV=$NODE_ENV
-
+# Add build essentials
+RUN apk add --no-cache python3 make g++
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Install dependencies with better error handling
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev --no-audit --no-fund || \
-    (echo "Error: npm ci failed. Ensure package-lock.json exists and is valid." && \
-     echo "Files in directory:" && ls -la && \
-     echo "Node version: $(node --version)" && \
-     echo "npm version: $(npm --version)" && \
-     exit 1)
+# Copy all necessary config files
+COPY resources/ ./resources/
+COPY vite.config.js ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
 
-FROM base AS builder
-WORKDIR /opt/medusa/build
-ARG NODE_ENV=production
-ENV NODE_ENV=$NODE_ENV
+RUN set -eux; \
+    npm install --prefer-offline --no-audit --no-progress
 
-# Copy package files and source code
-COPY package*.json ./
+# Build assets with explicit env
+RUN NODE_ENV=production npm run build
+
+
+# Stage 2: Install PHP dependencies with Composer
+FROM composer:2 AS composer-builder
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
+
+WORKDIR /app
+
+# Install required PHP extensions
+RUN apk add --no-cache \
+        icu-dev \
+    && docker-php-ext-configure intl \
+    && docker-php-ext-install intl
+
+# Copy composer files first
+COPY composer.json composer.lock ./
+
+# Copy the rest of the application before installing
 COPY . .
 
-# Clean any existing build artifacts
-RUN rm -rf .medusa node_modules
+# Install dependencies without running scripts
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
 
-# Install all dependencies (including dev deps for build)
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+# Now run the post-install scripts
+RUN composer run-script post-autoload-dump
 
-# Build the application
-RUN npm run build
+# Stage 3: Production image
+FROM php:8.3-fpm-alpine
+ARG PROXY
+ENV http_proxy=$PROXY \
+    HTTP_PROXY=$PROXY \
+    https_proxy=$PROXY \
+    HTTPS_PROXY=$PROXY
 
-FROM base AS runner
+WORKDIR /var/www/html
 
-# Install runtime packages
-RUN apk add --no-cache tini dumb-init bash \
-    && addgroup -g 1001 -S nodejs \
-    && adduser -S medusa -u 1001
+# Install system dependencies
+RUN apk update && apk add --no-cache \
+    git \
+    curl \
+    libpng-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    bash \
+    icu-dev
 
-USER medusa
-WORKDIR /opt/medusa
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
+    docker-php-ext-configure intl && \
+    docker-php-ext-install intl
 
-# Copy production dependencies from deps stage
-COPY --from=deps --chown=medusa:nodejs /opt/medusa/deps/node_modules ./node_modules
+# Configure opcache
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
-# Copy Medusa v2 build output
-COPY --from=builder --chown=medusa:nodejs /opt/medusa/build/.medusa/server ./
-COPY --from=builder --chown=medusa:nodejs /opt/medusa/build/src ./src
-COPY --from=builder --chown=medusa:nodejs /opt/medusa/build/medusa-config.ts ./
+# Copy application files
+COPY --from=composer-builder /app /var/www/html
+COPY --from=node-builder /app/public/build /var/www/html/public/build
 
-# Copy and set permissions for start script
-COPY --chown=medusa:nodejs start.sh ./
-RUN chmod +x ./start.sh
+RUN mkdir -p /var/www/html/storage/framework/{sessions,views,cache} \
+    && mkdir -p /var/www/html/storage/logs \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-ARG PORT=9000
-ARG NODE_ENV=production
-ENV PORT=$PORT
-ENV NODE_ENV=$NODE_ENV
-
-EXPOSE $PORT
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/health || exit 1
-
-ENTRYPOINT ["tini", "--"]
-CMD ["./start.sh"]
+VOLUME /var/www/html/storage
+# Expose port and start PHP-FPM
+EXPOSE 9000
+CMD ["php-fpm"]
