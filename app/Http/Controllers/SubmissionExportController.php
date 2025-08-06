@@ -7,6 +7,7 @@ use App\Models\Submission;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -163,7 +164,7 @@ class SubmissionExportController extends Controller
      *
      * @throws AuthorizationException
      */
-    public function exportSubmissionJson(Form $form, Submission $submission): Response
+    public function exportSubmissionJson(Form $form, Submission $submission): JsonResponse
     {
         // Ensure the submission belongs to the form
         if ($submission->form_id !== $form->id) {
