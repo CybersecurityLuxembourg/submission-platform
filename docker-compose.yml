@@ -1,6 +1,6 @@
 services:
   db:
-    image: mysql:8.0.33-debian
+    image: mysql:8.0
     container_name: nc3_db
     restart: unless-stopped
     command: --default-authentication-plugin=mysql_native_password
