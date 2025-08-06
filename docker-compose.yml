@@ -22,8 +22,6 @@ services:
       retries: 15
       interval: 10s
       start_period: 60s
-    ports:
-      - "127.0.0.1:3306:3306" # Optional: for debugging
 
   app:
     build:
