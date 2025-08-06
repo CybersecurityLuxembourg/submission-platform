@@ -6,7 +6,7 @@ echo "🚀 Starting deployment process..."
 # Source the environment variables from docker-compose.env
 if [ -f docker-compose.env ]; then
     echo "Loading environment variables from docker-compose.env..."
-    set -a  # automatically export all variables
+    set -a
     source docker-compose.env
     set +a
     echo "✅ Environment variables loaded"
@@ -26,48 +26,86 @@ for var in "${required_vars[@]}"; do
     fi
 done
 
-# Debug database connection info (without showing passwords)
-echo "Database connection details:"
-echo "Host: db"
-echo "Database: ${DB_DATABASE}"
-echo "Username: ${DB_USERNAME}"
+# Stop existing containers (graceful)
+echo "Stopping existing containers..."
+docker-compose --env-file docker-compose.env down || true
 
 # Build Docker images
 echo "Building Docker images..."
-docker-compose --env-file docker-compose.env build
+docker-compose --env-file docker-compose.env build --no-cache
 
-# Start Docker services
-echo "Starting Docker services..."
-docker-compose --env-file docker-compose.env up -d
+# Start database first
+echo "Starting database service..."
+docker-compose --env-file docker-compose.env up -d db
 
-# Simple wait for containers to be ready
-echo "Waiting for containers to be ready..."
-sleep 10
+# Wait for database to be healthy
+echo "Waiting for database to be ready..."
+timeout=300
+counter=0
+while ! docker-compose --env-file docker-compose.env exec -T db mysqladmin ping -h localhost --silent; do
+    echo "Waiting for database connection... ($counter/60)"
+    sleep 5
+    counter=$((counter + 1))
+    if [ $counter -gt 60 ]; then
+        echo "❌ Database failed to start within timeout period"
+        docker-compose --env-file docker-compose.env logs db
+        exit 1
+    fi
+done
 
-# Check MySQL container logs
-echo "Checking MySQL container logs..."
-docker-compose logs db
+echo "✅ Database is ready!"
 
-echo "✅ Database setup completed successfully!"
+# Start app service
+echo "Starting application service..."
+docker-compose --env-file docker-compose.env up -d app
 
-# Continue with deployment
+# Wait for app to be ready
+echo "Waiting for application to be ready..."
+sleep 30
+
+# Test database connectivity from app
+echo "Testing database connectivity from application..."
+if ! docker-compose --env-file docker-compose.env exec -T app php -r "
+try {
+    \$pdo = new PDO('mysql:host=db;dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}');
+    echo 'Database connection successful\n';
+} catch (Exception \$e) {
+    echo 'Database connection failed: ' . \$e->getMessage() . \"\n\";
+    exit(1);
+}"; then
+    echo "❌ Database connectivity test failed"
+    echo "App container logs:"
+    docker-compose --env-file docker-compose.env logs app
+    echo "Database container logs:"
+    docker-compose --env-file docker-compose.env logs db
+    exit 1
+fi
+
+echo "✅ Database connectivity test passed!"
+
+# Run database migrations
 echo "Running database migrations..."
-
-if ! docker-compose exec -T app php artisan migrate --force; then
-    echo "❌ Migration failed. Checking Laravel logs..."
-    docker-compose exec -T app cat storage/logs/laravel.log 2>/dev/null || echo "No Laravel logs available"
+if ! docker-compose --env-file docker-compose.env exec -T app php artisan migrate --force; then
+    echo "❌ Migration failed. Checking logs..."
+    docker-compose --env-file docker-compose.env exec -T app cat storage/logs/laravel.log 2>/dev/null || echo "No Laravel logs available"
+    echo "App container logs:"
+    docker-compose --env-file docker-compose.env logs app
     exit 1
 fi
 
 echo "Clearing caches..."
-docker-compose exec -T app php artisan config:clear
-docker-compose exec -T app php artisan cache:clear
-docker-compose exec -T app php artisan view:clear
-docker-compose exec -T app php artisan route:clear
+docker-compose --env-file docker-compose.env exec -T app php artisan config:clear
+docker-compose --env-file docker-compose.env exec -T app php artisan cache:clear
+docker-compose --env-file docker-compose.env exec -T app php artisan view:clear
+docker-compose --env-file docker-compose.env exec -T app php artisan route:clear
 
 echo "Optimizing application..."
-docker-compose exec -T app php artisan config:cache
-docker-compose exec -T app php artisan route:cache
-docker-compose exec -T app php artisan view:cache
+docker-compose --env-file docker-compose.env exec -T app php artisan config:cache
+docker-compose --env-file docker-compose.env exec -T app php artisan route:cache
+docker-compose --env-file docker-compose.env exec -T app php artisan view:cache
 
 echo "✅ Deployment completed successfully!"
+
+# Show final status
+echo "Final container status:"
+docker-compose --env-file docker-compose.env ps

@@ -1,56 +1,59 @@
 services:
-    db:
-        image: mysql:8.0.33-debian
-        container_name: nc3_db
-        restart: unless-stopped
-        command: --default-authentication-plugin=mysql_native_password
-        env_file:
-            - docker-compose.env
-        environment:
-            MYSQL_DATABASE: ${DB_DATABASE}
-            MYSQL_USER: ${DB_USERNAME}
-            MYSQL_PASSWORD: ${DB_PASSWORD}
-            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-        volumes:
-            - dbdata:/var/lib/mysql
-            - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-        networks:
-            - app_network
-        healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
-            timeout: 20s
-            retries: 10
-            interval: 10s
-            start_period: 40s
+  db:
+    image: mysql:8.0.33-debian
+    container_name: nc3_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    env_file:
+      - docker-compose.env
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 15
+      interval: 10s
+      start_period: 60s
+    ports:
+      - "127.0.0.1:3306:3306" # Optional: for debugging
 
-    app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-            args:
-                PROXY: ${PROXY}
-        container_name: nc3_app
-        ports:
-            - "127.0.0.1:9000:9000"
-        restart: unless-stopped
-        env_file:
-            - docker-compose.env
-        environment:
-            DB_HOST: db
-            PROXY: ${PROXY}
-        volumes:
-            - storage_data:/var/www/html/storage
-            - ./public:/var/www/html/public
-        depends_on:
-            db:
-                condition: service_healthy
-        networks:
-            - app_network
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROXY: ${PROXY}
+    container_name: nc3_app
+    ports:
+      - "127.0.0.1:9000:9000"
+    restart: unless-stopped
+    env_file:
+      - docker-compose.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      PROXY: ${PROXY}
+    volumes:
+      - storage_data:/var/www/html/storage
+      - ./public:/var/www/html/public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
 
 networks:
-    app_network:
-        driver: bridge
+  app_network:
+    driver: bridge
 
 volumes:
-    dbdata:
-    storage_data:
+  dbdata:
+  storage_data:

@@ -5,15 +5,18 @@ ENV http_proxy=$PROXY \
     https_proxy=$PROXY \
     HTTPS_PROXY=$PROXY
 
-# Configure npm to use proxy
-RUN npm config set proxy $PROXY \
-    && npm config set https-proxy $PROXY \
-    && npm config set registry https://registry.npmjs.org/
-# Set working directory
+# Configure npm to use proxy if PROXY is set
+RUN if [ -n "$PROXY" ]; then \
+        npm config set proxy $PROXY && \
+        npm config set https-proxy $PROXY; \
+    fi && \
+    npm config set registry https://registry.npmjs.org/
+
 WORKDIR /app
 
 # Add build essentials
 RUN apk add --no-cache python3 make g++
+
 # Copy package files
 COPY package.json package-lock.json ./
 
@@ -23,12 +26,10 @@ COPY vite.config.js ./
 COPY postcss.config.js ./
 COPY tailwind.config.js ./
 
-RUN set -eux; \
-    npm install --prefer-offline --no-audit --no-progress
+RUN npm install --prefer-offline --no-audit --no-progress
 
 # Build assets with explicit env
 RUN NODE_ENV=production npm run build
-
 
 # Stage 2: Install PHP dependencies with Composer
 FROM composer:2 AS composer-builder
@@ -78,7 +79,8 @@ RUN apk update && apk add --no-cache \
     zip \
     unzip \
     bash \
-    icu-dev
+    icu-dev \
+    mysql-client
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
@@ -98,6 +100,7 @@ RUN mkdir -p /var/www/html/storage/framework/{sessions,views,cache} \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 VOLUME /var/www/html/storage
+
 # Expose port and start PHP-FPM
 EXPOSE 9000
 CMD ["php-fpm"]
