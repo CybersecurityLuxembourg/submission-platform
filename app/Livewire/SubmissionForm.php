@@ -713,9 +713,9 @@ class SubmissionForm extends Component
                     case 'radio':
                         $fieldValueRules[] = 'string';
                         if (!empty($field->options)) {
-                            // Split the options and validate against individual options
+                              // Split the options and validate against individual options
                             $optionsArray = array_map('trim', explode(',', $field->options));
-                            $fieldValueRules[] = 'in:' . implode(',', $optionsArray);
+                            $fieldRules[] = 'in:' . implode(',', $optionsArray);
                         }
                         break;
 
@@ -728,29 +728,40 @@ class SubmissionForm extends Component
                         break;
 
                     case 'file':
-                        // Rules for the fieldValues entry (which is a path string)
-                        $fieldValueRules[] = 'string'; // It stores a path
-                        
-                        // Only validate tempFiles if no file path exists in fieldValues
-                        if (empty($this->fieldValues[$field->id])) {
-                            // Rules for the tempFiles entry (Livewire's actual file upload object)
-                            $tempFileRules = [];
-                            // tempFile is required only if the field itself is required
-                            if ($field->required) {
-                                $tempFileRules[] = 'required'; 
-                            } else {
-                                $tempFileRules[] = 'nullable';
-                            }
-                            $tempFileRules[] = 'file'; // Ensures it's an actual file object
-                            $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
-                            $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
-                            $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
+                        // For file fields, fieldValues might contain paths (existing files) or be empty
+                        // Only validate as string/path when it exists
+                        if (isset($this->fieldValues[$field->id]) && is_string($this->fieldValues[$field->id])) {
+                            $fieldRules[] = 'string';
+                        } else {
+                            // If no existing file, remove required rule as tempFiles will handle new uploads
+                            $fieldRules = array_filter($fieldRules, fn($rule) => $rule !== 'required');
+                            $fieldRules[] = 'nullable';
                         }
+                        
+                        // Add validation rules for new file uploads
+                        $tempFileRules = [];
+                        if ($field->required && !isset($this->fieldValues[$field->id])) {
+                            $tempFileRules[] = 'required';
+                        } else {
+                            $tempFileRules[] = 'nullable';
+                        }
+                        $tempFileRules[] = 'file';
+                        $tempFileRules[] = 'max:' . self::MAX_FILE_SIZE;
+                        $tempFileRules[] = 'mimes:' . implode(',', self::ALLOWED_FILE_TYPES);
+                        
+                        $rules["tempFiles.field_{$field->id}"] = $tempFileRules;
                         break;
                 }
 
-                // Assign accumulated rules for fieldValues.{$field->id}
-                $rules["fieldValues.{$field->id}"] = $fieldValueRules;
+                // Add rules for field values (skip files as they're handled above)
+                if ($field->type !== 'file') {
+                    $rules["fieldValues.{$field->id}"] = $fieldRules;
+                } else {
+                    // For file fields, only validate fieldValues if it contains a path
+                    if (!empty($fieldRules)) {
+                        $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    }
+                }
             }
         }
 

@@ -91,7 +91,16 @@ Route::middleware([
     });
     
     Route::get('forms/{form}/submissions/{submission}/export/pdf', [SubmissionExportController::class, 'exportSubmissionPdf'])
+        ->middleware('throttle:export')
         ->name('submissions.export.single.pdf');
+    
+    Route::get('forms/{form}/submissions/{submission}/export/json', [SubmissionExportController::class, 'exportSubmissionJson'])
+        ->middleware('throttle:export')
+        ->name('submissions.export.single.json');
+    
+    Route::get('forms/{form}/export/json', [SubmissionExportController::class, 'exportFormJson'])
+        ->middleware('throttle:bulk-export')
+        ->name('submissions.export.form.json');
 
         /*Route::prefix('forms/{form}/workflows')->name('workflows.')->middleware(['auth'])->group(function () {
         Route::get('/manage', [WorkflowController::class, 'manage'])->name('manage');

@@ -78,6 +78,17 @@ class SubmissionIndex extends Component
         };
     }
 
+    public function exportAllAsJson(): void
+    {
+        Log::info('Exporting all submissions as JSON', [
+            'form_id' => $this->form->id,
+            'status_filter' => $this->statusFilter,
+            'search' => $this->search
+        ]);
+        
+        $this->redirect(route('submissions.export.form.json', $this->form));
+    }
+
     public function render(): Factory|View|Application
     {
 

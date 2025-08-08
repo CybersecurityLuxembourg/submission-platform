@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\ApiToken;
-use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;

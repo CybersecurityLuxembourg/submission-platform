@@ -1,58 +1,57 @@
 services:
-    db:
-        image: mysql:8.0.42-debian
-        container_name: nc3_db
-        restart: unless-stopped
-        command: --default-authentication-plugin=mysql_native_password
-        env_file:
-            - docker-compose.env
-        environment:
-                MYSQL_DATABASE: ${DB_DATABASE}
-                MYSQL_USER: ${DB_USERNAME}
-                MYSQL_PASSWORD: ${DB_PASSWORD}
-                MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-        volumes:
-            - dbdata:/var/lib/mysql
-            - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-        networks:
-            - app_network
-        healthcheck:
-            test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-            start_period: 30s
-    app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-            args:
-                PROXY: ${PROXY}
-        container_name: nc3_app
-        ports:
-            - "127.0.0.1:9000:9000"
-        restart: unless-stopped
-        env_file:
-            - docker-compose.env
-        environment:
-            DB_HOST: db
-            PROXY: ${PROXY}
-            
-            no_proxy: "pandora,redis,kvrocks,clamav,db,localhost,127.0.0.1"
-            NO_PROXY: "pandora,redis,kvrocks,clamav,db,localhost,127.0.0.1"
-        volumes:
-            - storage_data:/var/www/html/storage
-            - ./public:/var/www/html/public
-        depends_on:
-            db:
-                condition: service_healthy
-        networks:
-            - app_network
+  db:
+    image: mysql:8.0.36-debian
+    container_name: nc3_db
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    env_file:
+      - docker-compose.env
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 15
+      interval: 10s
+      start_period: 60s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PROXY: ${PROXY}
+    container_name: nc3_app
+    ports:
+      - "127.0.0.1:9000:9000"
+    restart: unless-stopped
+    env_file:
+      - docker-compose.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      PROXY: ${PROXY}
+    volumes:
+      - storage_data:/var/www/html/storage
+      - ./public:/var/www/html/public
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app_network
 
 networks:
-    app_network:
-        driver: bridge
+  app_network:
+    driver: bridge
 
 volumes:
-    dbdata:
-    storage_data:
+  dbdata:
+  storage_data:

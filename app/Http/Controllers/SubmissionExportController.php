@@ -7,6 +7,7 @@ use App\Models\Submission;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Response;
+use Illuminate\Http\JsonResponse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -158,6 +159,107 @@ class SubmissionExportController extends Controller
         ]);
     }
 
+    /**
+     * Export single submission to JSON
+     *
+     * @throws AuthorizationException
+     */
+    public function exportSubmissionJson(Form $form, Submission $submission): JsonResponse
+    {
+        // Ensure the submission belongs to the form
+        if ($submission->form_id !== $form->id) {
+            abort(404, 'Submission does not belong to this form');
+        }
+        
+        $this->authorize('export', $submission);
+
+        try {
+            // Load the submission with its values using eager loading
+            $submission->load(['values', 'values.field', 'user', 'form.categories.fields']);
+
+            // Prepare submission data for JSON export
+            $submissionData = $this->prepareSubmissionDataForJson($submission);
+
+            // Validate filename for security
+            $filename = 'submission-' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $submission->id) . '.json';
+
+            return response()->json($submissionData, 200, [
+                'Content-Type' => 'application/json',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('JSON export failed for submission', [
+                'submission_id' => $submission->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            abort(500, 'Export failed. Please try again.');
+        }
+    }
+
+    /**
+     * Export all submissions for a form to JSON
+     *
+     * @throws AuthorizationException
+     */
+    public function exportFormJson(Form $form): StreamedResponse
+    {
+        $this->authorize('exportAllSubmissions', $form);
+
+        // Load the form with its categories and fields
+        $form->load([
+            'categories' => function ($query) {
+                $query->orderBy('order');
+            },
+            'categories.fields' => function ($query) {
+                $query->orderBy('order');
+            },
+        ]);
+
+        $callback = function() use ($form) {
+            $output = fopen('php://output', 'w');
+            
+            // Start JSON structure
+            fwrite($output, '{"form":');
+            fwrite($output, json_encode([
+                'id' => $form->id,
+                'title' => $form->title,
+                'description' => $form->description,
+                'exported_at' => now()->toISOString(),
+            ]));
+            fwrite($output, ',"submissions":[');
+
+            $first = true;
+            
+            // Process submissions in chunks to avoid memory issues
+            $form->submissions()
+                ->with(['values', 'values.field', 'user'])
+                ->latest()
+                ->chunk(100, function ($submissions) use ($output, &$first) {
+                    foreach ($submissions as $submission) {
+                        if (!$first) {
+                            fwrite($output, ',');
+                        }
+                        $first = false;
+                        
+                        $submissionData = $this->prepareSubmissionDataForJson($submission);
+                        fwrite($output, json_encode($submissionData));
+                    }
+                });
+
+            // Close JSON structure
+            fwrite($output, ']}');
+            fclose($output);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'application/json',
+            'Content-Disposition' => 'attachment; filename="' . $form->title . '-submissions.json"',
+        ]);
+    }
+
     private function prepareSubmissionData(Submission $submission): array
     {
         $submissionValues = $submission->values->keyBy('form_field_id');
@@ -193,6 +295,70 @@ class SubmissionExportController extends Controller
         return [
             'id' => $submission->id,
             'created_at' => $submission->created_at->format('Y-m-d H:i:s'),
+            'categories' => $categories,
+        ];
+    }
+
+    /**
+     * Prepare submission data for JSON export
+     * Following Laravel serialization best practices
+     */
+    private function prepareSubmissionDataForJson(Submission $submission): array
+    {
+        // Load form categories with proper eager loading to avoid N+1 queries
+        $submission->form->loadMissing(['categories.fields']);
+        $submissionValues = $submission->values->keyBy('form_field_id');
+
+        $categories = $submission->form->categories->map(function ($category) use ($submissionValues) {
+            $fields = $category->fields->map(function ($field) use ($submissionValues) {
+                $value = $submissionValues->get($field->id);
+                
+                $fieldData = [
+                    'id' => $field->id,
+                    'label' => $field->label,
+                    'type' => $field->type,
+                    'required' => (bool) $field->required,
+                    'value' => null,
+                    'file_name' => null,
+                ];
+
+                if ($value) {
+                    if ($field->type === 'file' && $value->value) {
+                        // For files, only include the filename, not the full path
+                        $fileName = basename($value->value);
+                        $fieldData['file_name'] = $fileName;
+                        $fieldData['value'] = $fileName;
+                    } else {
+                        // Cast boolean values properly
+                        $fieldData['value'] = $field->type === 'checkbox' ? 
+                            (bool) $value->value : $value->value;
+                    }
+                }
+
+                return $fieldData;
+            });
+
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'description' => $category->description,
+                'order' => (int) $category->order,
+                'fields' => $fields,
+            ];
+        });
+
+        return [
+            'id' => $submission->id,
+            'status' => $submission->status,
+            'submitted_by' => $submission->user ? [
+                'id' => $submission->user->id,
+                'name' => $submission->user->name,
+                'email' => $submission->user->email,
+            ] : null,
+            'submitted_at' => $submission->created_at->toISOString(),
+            'last_updated' => $submission->updated_at->toISOString(),
+            'last_activity' => $submission->last_activity?->toISOString(),
+            'status_metadata' => $submission->status_metadata,
             'categories' => $categories,
         ];
     }

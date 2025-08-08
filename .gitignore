@@ -20,4 +20,4 @@ yarn-error.log
 /.vscode
 /.zed
 docker-compose.env
-/.cursor
+.cursor
