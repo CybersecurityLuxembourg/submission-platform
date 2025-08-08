@@ -357,17 +357,22 @@ class SubmissionForm extends Component
         try {
             DB::beginTransaction();
 
-            if (!$this->submission->exists) {
-                $this->submission->form_id = $this->form->id;
-                $this->submission->status = 'draft';
-                $this->submission->last_activity = now();
-
-                if (auth()->check()) {
-                    $this->submission->user_id = auth()->id();
-                }
-
+            if (!$this->submission || !$this->submission->exists) {
+                $this->submission = new Submission([
+                    'form_id' => $this->form->id,
+                    'user_id' => auth()->id(),
+                    'status' => 'draft',
+                    'last_activity' => now(),
+                ]);
                 $this->submission->save();
             } else {
+                // Safeguard: ensure required fields are present on existing instance
+                if (empty($this->submission->form_id)) {
+                    $this->submission->form_id = $this->form->id;
+                }
+                if (auth()->check() && empty($this->submission->user_id)) {
+                    $this->submission->user_id = auth()->id();
+                }
                 $this->submission->update([
                     'last_activity' => now(),
                 ]);
@@ -515,7 +520,8 @@ class SubmissionForm extends Component
             
             DB::beginTransaction();
             
-            if (!$this->submission) {
+            // Ensure we always persist with required attributes
+            if (!$this->submission || !$this->submission->exists) {
                 $this->submission = new Submission([
                     'form_id' => $this->form->id,
                     'user_id' => auth()->id(),
@@ -523,6 +529,13 @@ class SubmissionForm extends Component
                 ]);
                 $this->submission->save();
             } else {
+                // Safeguard: ensure required fields are present on existing instance
+                if (empty($this->submission->form_id)) {
+                    $this->submission->form_id = $this->form->id;
+                }
+                if (auth()->check() && empty($this->submission->user_id)) {
+                    $this->submission->user_id = auth()->id();
+                }
                 $this->submission->status = 'submitted';
                 $this->submission->save();
             }
