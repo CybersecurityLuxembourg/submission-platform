@@ -6,7 +6,6 @@
     display: none;
 }
 
-
 .eu-logo:hover {
     transform: scale(1.02);
 }
@@ -19,8 +18,4 @@
         border-radius: 6px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> origin/master
