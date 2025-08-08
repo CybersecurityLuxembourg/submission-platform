@@ -622,7 +622,7 @@ class SubmissionForm extends Component
                 $this->fieldValues[$fieldId] = $newPath; // Update component state
 
                 // After successfully moving the file, scan it
-                if (config('services.pandora.enabled', true)) {
+                if (config('services.pandora.enabled', false)) {
                     $fullStoragePath = Storage::disk('private')->path($newPath);
                     $originalName = basename($newPath); // Or get original name if stored elsewhere
                     $mimeType = Storage::disk('private')->mimeType($newPath);

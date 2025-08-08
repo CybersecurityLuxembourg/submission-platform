@@ -2,10 +2,12 @@ services:
   redis:
     image: redis:7
     networks: [app_network]
+    restart: unless-stopped
 
   kvrocks:
     image: apache/kvrocks:latest
     networks: [app_network]
+    restart: unless-stopped
 
   clamav:
     image: clamav/clamav
@@ -23,6 +25,7 @@ services:
       interval:     10s
       timeout:      1s
       retries:      3
+    restart: unless-stopped
 
   pandora:
     image: ghcr.io/pandora-analysis/pandora:latest
@@ -49,6 +52,7 @@ services:
       - ./docker/pandora/workers:/pandora/pandora/workers:ro
       - ./docker/pandora/yara_rules:/pandora/yara_rules:ro
     networks: [app_network]
+    restart: unless-stopped
 
 networks:
   app_network:

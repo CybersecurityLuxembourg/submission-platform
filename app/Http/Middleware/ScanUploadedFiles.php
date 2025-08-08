@@ -25,7 +25,7 @@ class ScanUploadedFiles
     public function handle(Request $request, Closure $next): Response
     {
         // Skip if scanning is disabled
-        if (!config('services.pandora.enabled', true)) {
+        if (!config('services.pandora.enabled', false)) {
             return $next($request);
         }
         

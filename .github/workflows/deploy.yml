@@ -11,7 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-
       - name: Install dependencies and build
         run: |
           npm ci
@@ -31,7 +30,6 @@ jobs:
       - name: Adding known hosts on source host from target host
         run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.PRODUCTION_ENV_HOST }} >> ~/.ssh/known_hosts
 
-
       - name: Sync Files to Server
         run: |
           rsync -avz --delete \
@@ -42,10 +40,11 @@ jobs:
           --exclude 'tests' \
           ./ ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }}:/var/www/applications.nc3.lu/
       - name: Create Configuration Files and Deploy
+        env:
+          PANDORA_ENABLED: ${{ secrets.PRODUCTION_PANDORA_ENABLED }}
         run: |
           ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} "bash -s" << 'ENDSSH'
           cd /var/www/applications.nc3.lu
-
 
           # Create .env file
           cat > .env << 'EOL'
@@ -99,6 +98,10 @@ jobs:
 
           VITE_APP_NAME="NC3's Application Platform"
           API_DOCS_ALLOWED_DOMAINS=lhc.lu,circl.lu,nc3.lu
+          PANDORA_ENABLED=${{ env.PANDORA_ENABLED }}
+          PANDORA_URL=http://pandora:6100
+          PANDORA_TIMEOUT=15
+          PANDORA_BLOCK_MALICIOUS=true
           EOL
           chmod 644 .env
 
@@ -117,3 +120,10 @@ jobs:
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh
           ENDSSH
+
+      - name: Optional Pandora installation
+        if: env.PANDORA_ENABLED == 'true'
+        run: |
+          ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
+              ${{ secrets.SERVER_USERNAME }}@${{ secrets.PRODUCTION_ENV_HOST }} \
+              "bash /var/www/applications.nc3.lu/scripts/setup-pandora.sh $PANDORA_ENABLED '${{ secrets.PROXY }}'"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# setup-pandora.sh <enabled true|false>
+# setup-pandora.sh <enabled true|false> [proxy]
 #
 # Starts the Pandora overlay if the first argument is "true".
 # Works with either:
@@ -12,16 +12,26 @@
 set -euo pipefail
 
 PANDORA_ENABLED="${1:-false}"
-PROJECT_ROOT="/var/www/test.applications.nc3.lu"   # adjust if you ever move the repo
+PROXY="${2:-${PROXY:-}}"
+# Derive project root from this script location (one directory up)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if [[ "$PANDORA_ENABLED" != "true" ]]; then
-  echo "→ Pandora disabled – skipping install."docker
+  echo "→ Pandora disabled – skipping install."
   exit 0
 fi
 
 echo "→ Ensuring Docker network…"
 docker network inspect app_network >/dev/null 2>&1 \
   || docker network create app_network
+
+# Export proxy env for compose/docker if provided
+if [[ -n "$PROXY" ]]; then
+  export HTTP_PROXY="$PROXY"
+  export HTTPS_PROXY="$PROXY"
+  export http_proxy="$PROXY"
+  export https_proxy="$PROXY"
+fi
 
 # --------------------------------------------------------------------
 # Compose files: base stack + Pandora overlay (separated by “:” on Linux/macOS)

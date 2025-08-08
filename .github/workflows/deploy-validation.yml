@@ -107,6 +107,10 @@ jobs:
 
           VITE_APP_NAME="NC3's Application Platform"
           API_DOCS_ALLOWED_DOMAINS=lhc.lu,circl.lu,nc3.lu
+          PANDORA_ENABLED=true
+          PANDORA_URL=http://pandora:6100
+          PANDORA_TIMEOUT=15
+          PANDORA_BLOCK_MALICIOUS=true
           EOL
           chmod 644 .env
 

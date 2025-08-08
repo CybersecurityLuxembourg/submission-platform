@@ -33,7 +33,7 @@ class ScanSubmissionFiles extends Command
      */
     public function handle(FileScanService $scanService): int
     {
-        if (!config('services.pandora.enabled', true)) {
+        if (!config('services.pandora.enabled', false)) {
             $this->error('Pandora scanning is disabled in the configuration.');
             return Command::FAILURE;
         }
