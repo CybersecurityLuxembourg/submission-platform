@@ -38,8 +38,26 @@ services:
       - HTTPS_PROXY=${PROXY}
       - http_proxy=${PROXY}
       - https_proxy=${PROXY}
-
-   
+    working_dir: /pandora
+    tty: true
+    command:
+      - /bin/sh
+      - -lc
+      - |
+          set -e
+          echo "[pandora] waiting for dependencies..."
+          sleep 30
+          echo "[pandora] starting service"
+          if command -v pandora >/dev/null 2>&1; then
+            exec pandora start
+          elif command -v python3 >/dev/null 2>&1; then
+            exec python3 -m pandora
+          elif command -v uvicorn >/dev/null 2>&1; then
+            exec uvicorn pandora.website.server:app --host 0.0.0.0 --port 6100
+          else
+            echo "No known start command found in image" >&2
+            sleep 5
+          fi
     env_file:
       - ./docker/pandora/pandora.env
     volumes:

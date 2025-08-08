@@ -33,6 +33,9 @@ if [[ -n "$PROXY" ]]; then
   export https_proxy="$PROXY"
 fi
 
+# Ensure we run compose from the project root so relative paths resolve
+cd "$PROJECT_ROOT"
+
 # --------------------------------------------------------------------
 # Compose files: base stack + Pandora overlay (separated by “:” on Linux/macOS)
 export COMPOSE_FILE="$PROJECT_ROOT/docker-compose.yml:$PROJECT_ROOT/docker/pandora/pandora.yml"
