@@ -55,7 +55,7 @@ Route::middleware([
         Route::delete('/access-links/{accessLink}', [FormAccessController::class, 'deleteAccessLink'])->name('delete-access-link');
 
         // Form Field Management
-        Route::prefix('{form}/fields')->name('fields.')->group(function () {
+        Route::prefix('{form}/fields')->name('fields.')->middleware(['can:update,form'])->group(function () {
             Route::post('/', [FormFieldController::class, 'store'])->name('store');
             Route::put('/{field}', [FormFieldController::class, 'update'])->name('update');
             Route::delete('/{field}', [FormFieldController::class, 'destroy'])->name('destroy');
