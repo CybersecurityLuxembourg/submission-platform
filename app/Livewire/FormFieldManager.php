@@ -9,6 +9,7 @@ use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Application;
 use Livewire\Component;
+use Illuminate\Validation\Rule;
 
 class FormFieldManager extends Component
 {
@@ -44,6 +45,7 @@ class FormFieldManager extends Component
         'newCategory.description' => 'nullable|string',
         'newCategory.percentage_start' => 'required|numeric|min:0|max:100',
         'newCategory.percentage_end' => 'required|numeric|min:0|max:100|gt:newCategory.percentage_start',
+        // Keep a generic rule as a fallback; scoped rule is applied at runtime in validation methods
         'newField.category_id' => 'required|exists:form_categories,id',
         'newField.label' => 'required|string|max:255',
         'newField.type' => 'required|in:text,textarea,select,checkbox,radio,file,header,description',
@@ -140,7 +142,12 @@ class FormFieldManager extends Component
 
     public function addField(): void
     {
-        $this->validate($this->fieldValidationRules());
+        $messages = [
+            'newField.category_id.required' => 'Category is required.',
+            'newField.category_id.exists' => 'Selected category is invalid.',
+        ];
+
+        $this->validate($this->fieldValidationRules(), $messages);
 
         $category = FormCategory::findOrFail($this->newField['category_id']);
 
@@ -181,6 +188,10 @@ class FormFieldManager extends Component
     {
         $rules = [
             $prefix.'.type' => 'required|in:header,description,text,textarea,select,checkbox,radio,file',
+            $prefix.'.category_id' => [
+                'required',
+                Rule::exists('form_categories', 'id')->where('form_id', $this->form->id),
+            ],
         ];
 
         if (in_array($this->{$prefix}['type'], ['header', 'description'])) {
