@@ -9,6 +9,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class FormAccessController extends Controller
@@ -22,10 +23,17 @@ class FormAccessController extends Controller
     {
         $this->authorize('assignUsers', $form);
 
+        // Build the allowlist of eligible user IDs on the server side
+        $allowedUserIds = User::whereIn('role', ['internal_evaluator', 'external_evaluator', 'admin'])
+            ->where('id', '!=', auth()->id())
+            ->pluck('id')
+            ->toArray();
+
+        // Validate only against the server-side allowlist. Any tampered or injected IDs will be rejected.
         $validatedData = $request->validate([
-            'user_ids' => 'required|array',
-            'user_ids.*' => 'exists:users,id',
-            'can_edit' => 'boolean',
+            'user_ids' => ['required', 'array'],
+            'user_ids.*' => ['integer', 'distinct', Rule::in($allowedUserIds)],
+            'can_edit' => ['boolean'],
         ]);
 
 
