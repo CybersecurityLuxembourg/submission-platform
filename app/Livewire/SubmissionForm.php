@@ -728,7 +728,7 @@ class SubmissionForm extends Component
                         if (!empty($field->options)) {
                               // Split the options and validate against individual options
                             $optionsArray = array_map('trim', explode(',', $field->options));
-                            $fieldRules[] = 'in:' . implode(',', $optionsArray);
+                            $fieldValueRules[] = 'in:' . implode(',', $optionsArray);
                         }
                         break;
 
@@ -744,11 +744,11 @@ class SubmissionForm extends Component
                         // For file fields, fieldValues might contain paths (existing files) or be empty
                         // Only validate as string/path when it exists
                         if (isset($this->fieldValues[$field->id]) && is_string($this->fieldValues[$field->id])) {
-                            $fieldRules[] = 'string';
+                            $fieldValueRules[] = 'string';
                         } else {
                             // If no existing file, remove required rule as tempFiles will handle new uploads
-                            $fieldRules = array_filter($fieldRules, fn($rule) => $rule !== 'required');
-                            $fieldRules[] = 'nullable';
+                            $fieldValueRules = array_filter($fieldValueRules, fn($rule) => $rule !== 'required');
+                            $fieldValueRules[] = 'nullable';
                         }
                         
                         // Add validation rules for new file uploads
@@ -768,11 +768,11 @@ class SubmissionForm extends Component
 
                 // Add rules for field values (skip files as they're handled above)
                 if ($field->type !== 'file') {
-                    $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    $rules["fieldValues.{$field->id}"] = $fieldValueRules;
                 } else {
                     // For file fields, only validate fieldValues if it contains a path
-                    if (!empty($fieldRules)) {
-                        $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    if (!empty($fieldValueRules)) {
+                        $rules["fieldValues.{$field->id}"] = $fieldValueRules;
                     }
                 }
             }
