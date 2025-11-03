@@ -248,7 +248,7 @@ class SubmissionController extends Controller
     {
         $submissions = Submission::where('user_id', auth()->id())
             ->with(['form']) // Eager load relationships
-            ->orderBy('last_activity', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->paginate(10);
 
         return view('submissions.user-index', [

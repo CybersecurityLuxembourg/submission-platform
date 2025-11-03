@@ -22,6 +22,14 @@ class FormField extends Model
     }
 
     /**
+     * Get the category that owns the field.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(FormCategory::class, 'form_category_id');
+    }
+
+    /**
      * Get the submission values associated with the form field.
      */
     public function submissionValues(): HasMany

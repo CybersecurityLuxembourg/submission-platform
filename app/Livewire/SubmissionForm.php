@@ -248,7 +248,7 @@ class SubmissionForm extends Component
             'form_id' => $this->form->id,
             'user_id' => auth()->id(),
         ])->whereIn('status', ['draft', 'ongoing'])
-            ->orderBy('last_activity', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->first();
 
         if ($this->submission) {
@@ -258,8 +258,9 @@ class SubmissionForm extends Component
                 'form_id' => $this->form->id,
                 'user_id' => auth()->id(),
                 'status' => 'draft',
-                'last_activity' => now(),
             ]);
+            $this->submission->save();
+            $this->submission->touch();
         }
     }
 
@@ -362,7 +363,6 @@ class SubmissionForm extends Component
                     'form_id' => $this->form->id,
                     'user_id' => auth()->id(),
                     'status' => 'draft',
-                    'last_activity' => now(),
                 ]);
                 $this->submission->save();
             } else {
@@ -373,9 +373,8 @@ class SubmissionForm extends Component
                 if (auth()->check() && empty($this->submission->user_id)) {
                     $this->submission->user_id = auth()->id();
                 }
-                $this->submission->update([
-                    'last_activity' => now(),
-                ]);
+                // Touch to update the updated_at timestamp as activity indicator
+                $this->submission->touch();
             }
             
             // Deep clone the fieldValues to avoid reference issues

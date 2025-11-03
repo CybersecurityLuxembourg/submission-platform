@@ -13,7 +13,7 @@
         "laravel/jetstream": "^5.2",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
-        "livewire/livewire": "^3.6"
+        "livewire/livewire": "3.6.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -54,6 +54,18 @@
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
             "@php artisan migrate --graceful --ansi"
+        ],
+        "test": [
+            "@php vendor/bin/phpunit"
+        ],
+        "test:coverage": [
+            "@php vendor/bin/phpunit --coverage-html coverage"
+        ],
+        "lint": [
+            "@php vendor/bin/pint --test"
+        ],
+        "lint:fix": [
+            "@php vendor/bin/pint"
         ]
     },
     "extra": {

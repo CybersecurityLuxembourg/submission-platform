@@ -19,14 +19,14 @@ class SubmissionIndex extends Component
     public Form $form;
     public string $statusFilter = 'all';
     public string $search = '';
-    public string $sortField = 'last_activity';
+    public string $sortField = 'updated_at';
     public string $sortDirection = 'desc';
     public bool $showCompleted = false;
     protected $listeners = ['refresh' => '$refresh'];
     protected array $queryString = [
         'statusFilter' => ['except' => 'all'],
         'search' => ['except' => ''],
-        'sortField' => ['except' => 'last_activity'],
+        'sortField' => ['except' => 'updated_at'],
         'sortDirection' => ['except' => 'desc'],
         'showCompleted' => ['except' => false]
     ];

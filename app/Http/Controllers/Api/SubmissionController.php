@@ -167,10 +167,14 @@ class SubmissionController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             
-            return response()->json([
-                'message' => 'Submission creation failed',
-                'error' => $e->getMessage()
-            ], 500);
+            $response = ['message' => 'Submission creation failed'];
+            
+            // Only include error details in debug mode
+            if (config('app.debug')) {
+                $response['error'] = $e->getMessage();
+            }
+            
+            return response()->json($response, 500);
         }
     }
 
