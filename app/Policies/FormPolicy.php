@@ -197,7 +197,7 @@ class FormPolicy
         }
 
         // Internal evaluators with edit rights can export submissions
-        if ($user->role === 'internal_evaluator' && $user->role === 'external_evaluator') {
+        if ($user->role === 'internal_evaluator' || $user->role === 'external_evaluator') {
             return $form->appointedUsers()
                 ->where('user_id', $user->id)
                 ->where('can_edit', true)

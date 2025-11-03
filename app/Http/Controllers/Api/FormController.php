@@ -127,10 +127,14 @@ class FormController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             
-            return response()->json([
-                'message' => 'Form creation failed',
-                'error' => $e->getMessage()
-            ], 500);
+            $response = ['message' => 'Form creation failed'];
+            
+            // Only include error details in debug mode
+            if (config('app.debug')) {
+                $response['error'] = $e->getMessage();
+            }
+            
+            return response()->json($response, 500);
         }
     }
 

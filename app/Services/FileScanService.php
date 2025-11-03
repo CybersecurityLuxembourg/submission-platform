@@ -7,6 +7,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class FileScanService
 {
@@ -26,8 +27,9 @@ class FileScanService
     public function scanFile(UploadedFile $file): array
     {
         try {
-            // Store file temporarily
-            $tempPath = $file->storeAs('temp/scans', $file->getClientOriginalName());
+            // Store file temporarily using a unique filename to avoid collisions
+            $uniqueFilename = Str::uuid()->toString() . '_' . $file->getClientOriginalName();
+            $tempPath = $file->storeAs('temp/scans', $uniqueFilename);
             $fullPath = Storage::path($tempPath);
             
             // Call Pandora API to scan the file

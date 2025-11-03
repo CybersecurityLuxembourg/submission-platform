@@ -54,6 +54,18 @@
             "@php artisan key:generate --ansi",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
             "@php artisan migrate --graceful --ansi"
+        ],
+        "test": [
+            "@php vendor/bin/phpunit"
+        ],
+        "test:coverage": [
+            "@php vendor/bin/phpunit --coverage-html coverage"
+        ],
+        "lint": [
+            "@php vendor/bin/pint --test"
+        ],
+        "lint:fix": [
+            "@php vendor/bin/pint"
         ]
     },
     "extra": {
