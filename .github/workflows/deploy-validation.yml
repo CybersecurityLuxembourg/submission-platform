@@ -14,7 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-
+      - name: Show 
+        run: |
+          echo "BASTION_HOST=${{ vars.BASTION_HOST }}"
+          echo "BASTION_SSH_PORT=${{ vars.BASTION_SSH_PORT }}"
       - name: Install dependencies and build
         run: |
           npm ci
@@ -34,6 +37,15 @@ jobs:
       - name: Adding known hosts on source host from target host
         run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.VALIDATION_ENV_HOST }} >> ~/.ssh/known_hosts
 
+
+      - name: Disable StrictHostKeyChecking for CI
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << 'EOF'
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          EOF
 
       - name: Sync Files to Server
         run: |
@@ -84,11 +96,10 @@ jobs:
 
           SESSION_DRIVER=database
           SESSION_LIFETIME=120
-          SESSION_ENCRYPT=true
+          SESSION_ENCRYPT=false
           SESSION_PATH=/
           SESSION_DOMAIN=null
           SESSION_STORE=
-          SESSION_SECURE_COOKIE=true
 
           BROADCAST_CONNECTION=log
           FILESYSTEM_DISK=local
@@ -108,7 +119,6 @@ jobs:
 
           VITE_APP_NAME="NC3's Application Platform"
           API_DOCS_ALLOWED_DOMAINS=lhc.lu,circl.lu,nc3.lu
-          CORS_ALLOWED_ORIGINS=https://test.applications.nc3.lu
           PANDORA_ENABLED=true
           PANDORA_URL=http://pandora:6100
           PANDORA_TIMEOUT=15

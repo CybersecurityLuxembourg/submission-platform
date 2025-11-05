@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\ApiSetting;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -59,7 +60,9 @@ class AppServiceProvider extends ServiceProvider
             return true;
         }
         
-        $allowedDomains = explode(',', env('API_DOCS_ALLOWED_DOMAINS', 'lhc.lu,circl.lu,nc3.lu'));
+        // Get allowed domains from database settings, fallback to env
+        $allowedDomainsStr = ApiSetting::get('api_docs_allowed_domains', env('API_DOCS_ALLOWED_DOMAINS', 'lhc.lu,circl.lu,nc3.lu'));
+        $allowedDomains = array_map('trim', explode(',', $allowedDomainsStr));
         $emailDomain = substr(strrchr($email, "@"), 1);
         
         return in_array($emailDomain, $allowedDomains);
@@ -88,10 +91,12 @@ class AppServiceProvider extends ServiceProvider
             $apiToken = $request->attributes->get('api_token');
             
             if ($apiToken) {
-                return Limit::perMinute(120)->by('token:' . $apiToken->id);
+                $limit = (int) ApiSetting::get('rate_limit_api_authenticated', 120);
+                return Limit::perMinute($limit)->by('token:' . $apiToken->id);
             }
             
-            return Limit::perMinute(20)->by('ip:' . $request->ip());
+            $limit = (int) ApiSetting::get('rate_limit_api_unauthenticated', 20);
+            return Limit::perMinute($limit)->by('ip:' . $request->ip());
         });
     }
 
@@ -103,7 +108,8 @@ class AppServiceProvider extends ServiceProvider
     private function registerApiAuthRateLimiter(): void
     {
         RateLimiter::for('api-auth', function (Request $request) {
-            return Limit::perMinute(5)->by('ip:' . $request->ip());
+            $limit = (int) ApiSetting::get('rate_limit_auth_attempts', 5);
+            return Limit::perMinute($limit)->by('ip:' . $request->ip());
         });
     }
 
@@ -119,12 +125,16 @@ class AppServiceProvider extends ServiceProvider
             $identifier = $apiToken?->id ?? $request->ip();
             
             if ($request->isMethod('GET')) {
-                return Limit::perMinute(200)->by('token:' . $identifier);
+                $limit = (int) ApiSetting::get('rate_limit_submissions_read', 200);
+                return Limit::perMinute($limit)->by('token:' . $identifier);
             }
             
+            $writeLimit = (int) ApiSetting::get('rate_limit_submissions_write', 60);
+            $dailyLimit = (int) ApiSetting::get('rate_limit_submissions_daily', 1000);
+            
             return [
-                Limit::perMinute(60)->by('token:' . $identifier),
-                Limit::perDay(1000)->by('daily:token:' . $identifier),
+                Limit::perMinute($writeLimit)->by('token:' . $identifier),
+                Limit::perDay($dailyLimit)->by('daily:token:' . $identifier),
             ];
         });
     }
