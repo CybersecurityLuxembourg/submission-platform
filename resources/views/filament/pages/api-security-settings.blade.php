@@ -2,9 +2,10 @@
     <form wire:submit="save">
         {{ $this->form }}
         
-        <div class="mt-6">
-            {{ $this->getFormActions() }}
-        </div>
+        <x-filament-panels::form.actions
+            :actions="$this->getCachedFormActions()"
+            :full-width="$this->hasFullWidthFormActions()"
+        />
     </form>
     
     <x-filament-actions::modals />
