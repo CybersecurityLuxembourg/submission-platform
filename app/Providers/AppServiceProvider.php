@@ -84,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registerGeneralApiRateLimiter();
         $this->registerApiAuthRateLimiter();
         $this->registerApiSubmissionsRateLimiter();
+        $this->registerExportRateLimiters();
     }
 
     /**
@@ -142,6 +143,24 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute($writeLimit)->by('token:' . $identifier),
                 Limit::perDay($dailyLimit)->by('daily:token:' . $identifier),
             ];
+        });
+    }
+
+    /**
+     * Register export rate limiters.
+     *
+     * @return void
+     */
+    private function registerExportRateLimiters(): void
+    {
+        // Rate limiter for single export operations (PDF, JSON)
+        RateLimiter::for('export', function (Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Rate limiter for bulk export operations (all submissions)
+        RateLimiter::for('bulk-export', function (Request $request) {
+            return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
         });
     }
 
