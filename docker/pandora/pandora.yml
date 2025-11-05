@@ -1,0 +1,82 @@
+services:
+  redis:
+    image: redis:7
+    networks: [app_network]
+    restart: unless-stopped
+
+  kvrocks:
+    image: apache/kvrocks:latest
+    networks: [app_network]
+    restart: unless-stopped
+
+  clamav:
+    image: clamav/clamav
+    volumes:
+      - clamav-socket:/tmp
+    networks: [app_network]
+    environment:
+    - HTTP_PROXY=${PROXY}
+    - HTTPS_PROXY=${PROXY}
+    - http_proxy=${PROXY}
+    - https_proxy=${PROXY}    
+    healthcheck:
+      test: ["CMD", "clamdscan", "--config=/etc/clamav/clamd.conf", "--ping", "1"]
+      start_period: 120s
+      interval:     10s
+      timeout:      1s
+      retries:      3
+    restart: unless-stopped
+
+  pandora:
+    image: ghcr.io/pandora-analysis/pandora:latest
+    depends_on: [redis, kvrocks, clamav]
+    expose: ["6100"]
+    environment:
+      - PANDORA_REDIS_HOST=redis
+      - PANDORA_KVROCKS_HOST=kvrocks
+      - HTTP_PROXY=${PROXY}
+      - HTTPS_PROXY=${PROXY}
+      - http_proxy=${PROXY}
+      - https_proxy=${PROXY}
+    working_dir: /pandora
+    tty: true
+    command:
+      - /bin/sh
+      - -lc
+      - |
+          set -e
+          echo "[pandora] waiting for dependencies..."
+          sleep 30
+          echo "[pandora] starting service"
+          if command -v pandora >/dev/null 2>&1; then
+            exec pandora start
+          elif command -v python3 >/dev/null 2>&1; then
+            exec python3 -m pandora
+          elif command -v uvicorn >/dev/null 2>&1; then
+            exec uvicorn pandora.website.server:app --host 0.0.0.0 --port 6100
+          else
+            echo "No known start command found in image" >&2
+            sleep 5
+          fi
+    env_file:
+      - ./docker/pandora/pandora.env
+    volumes:
+      # Persistent runtime data
+      - pandora_cache:/pandora/cache
+      - pandora_storage:/pandora/storage
+      - clamav-socket:/var/run/clamav
+      
+      - ./docker/pandora/config/generic.json:/pandora/config/generic.json:ro
+      - ./docker/pandora/workers:/pandora/pandora/workers:ro
+      - ./docker/pandora/yara_rules:/pandora/yara_rules:ro
+    networks: [app_network]
+    restart: unless-stopped
+
+networks:
+  app_network:
+    external: true
+
+volumes:
+  pandora_cache:
+  pandora_storage:
+  clamav-socket:

@@ -49,7 +49,7 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {{ $submission->last_activity ? $submission->last_activity->diffForHumans() : $submission->updated_at->diffForHumans() }}
+                                            {{ $submission->updated_at->diffForHumans() }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                             @if($submission->status === 'draft')
@@ -78,10 +78,14 @@
                                                 </a>
                                             @endif
 
-                                            @can('exportOwn', $submission)
+                                            @can('export', $submission)
                                                 <a href="{{ route('submissions.export.single.pdf', ['form' => $submission->form, 'submission' => $submission]) }}"
                                                    class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">
                                                     Export PDF
+                                                </a>
+                                                <a href="{{ route('submissions.export.single.json', ['form' => $submission->form, 'submission' => $submission]) }}"
+                                                   class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+                                                    Export JSON
                                                 </a>
                                             @endcan
                                         </td>

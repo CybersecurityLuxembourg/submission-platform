@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use App\Models\FormUser;
 use App\Models\Submission;
 use Exception;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -153,10 +154,6 @@ class SubmissionController extends Controller
      * Display the specified submission.
      * @throws AuthorizationException
      */
-    /**
-     * Display the specified submission.
-     * @throws AuthorizationException
-     */
     public function showSubmission(Form $form, Submission $submission): View
     {
         $this->authorize('view', $submission);
@@ -176,17 +173,37 @@ class SubmissionController extends Controller
             },
         ]);
 
-        // Load the submission values
-        $submission->load('values');
+        // Load the submission values and their scan results
+        $submission->load('values.scanResult', 'values.field');
 
         // Key the submission values by 'form_field_id' for easy access
         $submissionValues = $submission->values->keyBy('form_field_id');
+
+        // Determine the back link based on user role
+        $backLink = '';
+        if (auth()->check()) {
+            $userId = auth()->id();
+            $isFormOwner = $form->user_id == $userId;
+            $isFormUser = FormUser::where('form_id', $form->id)->where('user_id', $userId)->exists();
+            $isSubmissionOwner = $submission->user_id == $userId;
+
+            if ($isFormOwner || $isFormUser) {
+                $backLink = route('submissions.index', $form);
+            } elseif ($isSubmissionOwner) {
+                $backLink = route('submissions.user');
+            } else {
+                $backLink = route('submissions.user'); // Default fallback
+            }
+        } else {
+            $backLink = route('homepage'); // Fallback for guests
+        }
 
         // Prepare categories with their fields and values
         $categories = $form->categories->map(function ($category) use ($submissionValues, $submission) {
             // Map over the category's fields
             $fields = $category->fields->map(function ($field) use ($submissionValues, $submission) {
                 $value = $submissionValues->get($field->id);
+                $scanResult = $value ? $value->scanResult : null;
 
                 $displayValue = null;
                 if ($value) {
@@ -202,7 +219,9 @@ class SubmissionController extends Controller
                 return [
                     'label' => $field->label,
                     'type' => $field->type,
+                    'value' => $value ? $value->value : null,
                     'displayValue' => $displayValue,
+                    'scanResult' => $scanResult,
                 ];
             });
 
@@ -217,10 +236,10 @@ class SubmissionController extends Controller
         return view('submissions.show', [
             'form' => $form,
             'submission' => $submission,
-            'categories' => $categories
+            'categories' => $categories,
+            'backLink' => $backLink
         ]);
     }
-
 
     /**
      * Display a listing of submissions for the authenticated user.
@@ -229,7 +248,7 @@ class SubmissionController extends Controller
     {
         $submissions = Submission::where('user_id', auth()->id())
             ->with(['form']) // Eager load relationships
-            ->orderBy('last_activity', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->paginate(10);
 
         return view('submissions.user-index', [

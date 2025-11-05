@@ -26,9 +26,16 @@
                                     <h4 class="text-md font-medium text-gray-700 dark:text-gray-300">{{ $field['label'] }}</h4>
                                     @if($field['type'] === 'file')
                                         @if($field['displayValue'])
-                                            <a href="{{ $field['displayValue'] }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                                                View Uploaded File
-                                            </a>
+                                            <div class="flex items-center space-x-2">
+                                                <a href="{{ $field['displayValue'] }}" target="_blank" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                                                    {{ basename($field['value']) }}
+                                                </a>
+                                                @if(isset($field['scanResult']))
+                                                    <x-scan-result-badge :scanResult="$field['scanResult']" />
+                                                @else 
+                                                    <x-scan-result-badge :scanResult="null" />
+                                                @endif
+                                            </div>
                                         @else
                                             <p class="text-gray-500 dark:text-gray-400">No file uploaded</p>
                                         @endif
@@ -47,7 +54,7 @@
                     @endforeach
 
                     <div class="mt-8">
-                        <a href="{{ route('submissions.index', $form) }}" class="inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:bg-gray-700 dark:focus:bg-white active:bg-gray-900 dark:active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150">
+                        <a href="{{ $backLink }}" class="inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:bg-gray-700 dark:focus:bg-white active:bg-gray-900 dark:active:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150">
                             Back to Submissions
                         </a>
                     </div>

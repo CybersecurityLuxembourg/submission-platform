@@ -122,14 +122,16 @@
                         @if($field->type === 'text')
                             <input type="text"
                                    id="field_{{ $field->id }}"
-                                   wire:model.debounce.1000ms="fieldValues.{{ $field->id }}"
+                                   wire:model.live="fieldValues.{{ $field->id }}"
+                                   @if($field->char_limit) placeholder="Max {{ $field->char_limit }} characters" @endif
                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                    @if($field->char_limit) maxlength="{{ $field->char_limit }}" @endif>
 
                         @elseif($field->type === 'textarea')
                             <textarea id="field_{{ $field->id }}"
-                                      wire:model.debounce.1000ms="fieldValues.{{ $field->id }}"
+                                      wire:model.live="fieldValues.{{ $field->id }}"
                                       rows="3"
+                                      @if($field->char_limit) placeholder="Max {{ $field->char_limit }} characters" @endif
                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                       @if($field->char_limit) maxlength="{{ $field->char_limit }}" @endif></textarea>
 
@@ -233,8 +235,20 @@
                         @enderror
 
                         @if($field->char_limit)
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                Characters: {{ strlen($fieldValues[$field->id] ?? '') }}/{{ $field->char_limit }}
+                            @php
+                                $used = strlen($fieldValues[$field->id] ?? '');
+                                $limit = (int) $field->char_limit;
+                                $threshold = max((int) ceil($limit * 0.9), 1); // 90% used
+                                $nearLimit = $used >= $threshold && $used < $limit;
+                            @endphp
+                            <p class="mt-1 text-sm aria-live-polite"
+                               aria-live="polite"
+                               @class([
+                                   'text-gray-500 dark:text-gray-400' => !$nearLimit && $used < $limit,
+                                   'text-amber-600 dark:text-amber-400' => $nearLimit,
+                                   'text-red-600 dark:text-red-500' => $used >= $limit,
+                               ])>
+                                {{ $used }}/{{ $limit }} characters
                             </p>
                         @endif
                     @endif

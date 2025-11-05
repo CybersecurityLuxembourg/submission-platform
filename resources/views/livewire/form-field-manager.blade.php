@@ -325,7 +325,7 @@
                             </div>
                         </div>
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                            <button type="submit"
+                            <button type="submit" wire:click.prevent="updateCategory"
                                     class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
                                 Update
                             </button>
@@ -443,12 +443,6 @@
                                     </div>
                                 @endif
 
-                                <!-- In the Form Structure display, add this after the field type display -->
-                                @if(isset($field['char_limit']) && $field['char_limit'] && in_array($field['type'], ['text', 'textarea']))
-                                    <span class="text-gray-500 dark:text-gray-400 ml-2">
-                                    (max {{ $field['char_limit'] }} characters)
-                                    </span>
-                                @endif
                             @endif
                         </div>
                         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">

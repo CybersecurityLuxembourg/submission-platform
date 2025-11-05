@@ -4,6 +4,10 @@ namespace App\Livewire;
 
 use App\Models\Form;
 use App\Models\Submission;
+use App\Models\ScanResult;
+use App\Services\FileScanService;
+use App\Models\SubmissionValues;
+use App\Models\FormField;
 use Exception;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Contracts\View\View;
@@ -13,6 +17,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Illuminate\Http\UploadedFile as IlluminateUploadedFile;
+use Illuminate\Validation\ValidationException;
 
 class SubmissionForm extends Component
 {
@@ -242,7 +248,7 @@ class SubmissionForm extends Component
             'form_id' => $this->form->id,
             'user_id' => auth()->id(),
         ])->whereIn('status', ['draft', 'ongoing'])
-            ->orderBy('last_activity', 'desc')
+            ->orderBy('updated_at', 'desc')
             ->first();
 
         if ($this->submission) {
@@ -252,8 +258,9 @@ class SubmissionForm extends Component
                 'form_id' => $this->form->id,
                 'user_id' => auth()->id(),
                 'status' => 'draft',
-                'last_activity' => now(),
             ]);
+            $this->submission->save();
+            $this->submission->touch();
         }
     }
 
@@ -267,13 +274,33 @@ class SubmissionForm extends Component
         try {
             $path = $value->store('temp-submissions', 'private');
             $this->fieldValues[$fieldId] = $path;
+          
+            if (array_key_exists($key, $this->tempFiles)) {
+                 $this->tempFiles[$key] = null;
+            }
+    
             $this->dispatch('success', 'File uploaded successfully');
-        } catch (Exception $e) {
-            Log::error('File upload failed', [
+        } catch (ValidationException $e) {
+            
+            Log::error('Livewire file validation failed during upload for key: ' . $key, [
                 'error' => $e->getMessage(),
+                'errors' => $e->errors(),
                 'field_id' => $fieldId
             ]);
-            $this->dispatch('error', 'Failed to upload file: ' . $e->getMessage());
+            // Propagate errors to Livewire's error bag if not already there.
+            foreach ($e->errors() as $errorKey => $messages) {
+                foreach ($messages as $message) {
+                    $this->addError($errorKey, $message);
+                }
+            }
+        } catch (Exception $e) {
+            Log::error('File upload processing failed in updatedTempFiles for key: ' . $key, [
+                'error' => $e->getMessage(),
+                'field_id' => $fieldId,
+                'trace' => $e->getTraceAsString() // Full trace can be verbose, but useful for debugging
+            ]);
+            // Use $key for addError as it matches the wire:model target, e.g., "tempFiles.field_117"
+            $this->addError($key, 'Failed to upload or process file. Please try again. If the issue persists, contact support.');
         }
     }
 
@@ -331,20 +358,23 @@ class SubmissionForm extends Component
         try {
             DB::beginTransaction();
 
-            if (!$this->submission->exists) {
-                $this->submission->form_id = $this->form->id;
-                $this->submission->status = 'draft';
-                $this->submission->last_activity = now();
-
-                if (auth()->check()) {
-                    $this->submission->user_id = auth()->id();
-                }
-
+            if (!$this->submission || !$this->submission->exists) {
+                $this->submission = new Submission([
+                    'form_id' => $this->form->id,
+                    'user_id' => auth()->id(),
+                    'status' => 'draft',
+                ]);
                 $this->submission->save();
             } else {
-                $this->submission->update([
-                    'last_activity' => now(),
-                ]);
+                // Safeguard: ensure required fields are present on existing instance
+                if (empty($this->submission->form_id)) {
+                    $this->submission->form_id = $this->form->id;
+                }
+                if (auth()->check() && empty($this->submission->user_id)) {
+                    $this->submission->user_id = auth()->id();
+                }
+                // Touch to update the updated_at timestamp as activity indicator
+                $this->submission->touch();
             }
             
             // Deep clone the fieldValues to avoid reference issues
@@ -479,38 +509,37 @@ class SubmissionForm extends Component
     }
 
     /**
-     * Handle form submission
-     * @throws Exception
+     * Submit the form
      */
     public function submit(): void
     {
-        $this->validate($this->rules(), [], $this->fieldLabels());
-
         try {
+            // Validate all form data
+            $this->validate($this->rules(), [], $this->fieldLabels());
+            
             DB::beginTransaction();
-
-            // Create new submission for non-authenticated users or if no draft exists
+            
+            // Ensure we always persist with required attributes
             if (!$this->submission || !$this->submission->exists) {
                 $this->submission = new Submission([
                     'form_id' => $this->form->id,
+                    'user_id' => auth()->id(),
                     'status' => 'submitted',
-                    'last_activity' => now(),
                 ]);
-
-                if (auth()->check()) {
-                    $this->submission->user_id = auth()->id();
-                }
-
                 $this->submission->save();
             } else {
-                // Update existing submission (e.g., from draft)
-                $this->submission->update([
-                    'status' => 'submitted',
-                    'last_activity' => now(),
-                ]);
+                // Safeguard: ensure required fields are present on existing instance
+                if (empty($this->submission->form_id)) {
+                    $this->submission->form_id = $this->form->id;
+                }
+                if (auth()->check() && empty($this->submission->user_id)) {
+                    $this->submission->user_id = auth()->id();
+                }
+                $this->submission->status = 'submitted';
+                $this->submission->save();
             }
             
-            // Save checkbox values as they are (they're already arrays in the UI)
+            // Store submission values
             foreach ($this->fieldValues as $fieldId => $value) {
                 if (is_array($value)) {
                     // This is likely a checkbox field
@@ -573,11 +602,22 @@ class SubmissionForm extends Component
     /**
      * Handle permanent file storage after submission
      */
-    protected function handleFileUploads(): void
+    protected function handleFileUploads(?FileScanService $scanService = null): void
     {
+        // If no scan service was provided, try to resolve it from the container
+        if (!$scanService) {
+            $scanService = app(FileScanService::class);
+        }
+        
         foreach ($this->fieldValues as $fieldId => $value) {
             // Skip if value is not a string (e.g., arrays from checkboxes)
             if (!is_string($value)) {
+                continue;
+            }
+
+            // Check if this field is actually a file type and the value looks like a temp path
+            $fieldModel = FormField::find($fieldId);
+            if (!$fieldModel || $fieldModel->type !== 'file') {
                 continue;
             }
             
@@ -585,12 +625,70 @@ class SubmissionForm extends Component
                 $newPath = "submissions/{$this->submission->id}/" . basename($value);
                 Storage::disk('private')->move($value, $newPath);
 
-                $this->submission->values()->updateOrCreate(
+                // Update the submission value with the new path
+                $submissionValue = $this->submission->values()->updateOrCreate(
                     ['form_field_id' => $fieldId],
                     ['value' => $newPath]
                 );
 
-                $this->fieldValues[$fieldId] = $newPath;
+                $this->fieldValues[$fieldId] = $newPath; // Update component state
+
+                // After successfully moving the file, scan it
+                if (config('services.pandora.enabled', false)) {
+                    $fullStoragePath = Storage::disk('private')->path($newPath);
+                    $originalName = basename($newPath); // Or get original name if stored elsewhere
+                    $mimeType = Storage::disk('private')->mimeType($newPath);
+
+                    // Create an Illuminate\Http\UploadedFile instance for the scan service
+                    $uploadedFileForScan = new IlluminateUploadedFile(
+                        $fullStoragePath,
+                        $originalName,
+                        $mimeType,
+                        null, // Error code, null for no error
+                        true // Set to true to indicate this is a test file (prevents move attempts)
+                    );
+
+                    Log::info('Scanning file after upload', [
+                        'submission_id' => $this->submission->id,
+                        'submission_value_id' => $submissionValue->id,
+                        'filename' => $originalName,
+                        'path' => $newPath
+                    ]);
+
+                    $scanResultData = $scanService->scanFile($uploadedFileForScan);
+
+                    if ($scanResultData['success']) {
+                        // Store scan results
+                        ScanResult::create([
+                            'submission_id' => $this->submission->id,
+                            'submission_value_id' => $submissionValue->id,
+                            'is_malicious' => $scanResultData['is_malicious'],
+                            'scan_results' => $scanResultData['scan_results'],
+                            'scanner_used' => 'pandora',
+                            'filename' => $originalName,
+                        ]);
+
+                        // If the file is malicious and we're configured to block, we need to handle this
+                        // Since this happens after the file is stored, we'll need to delete it and notify the user
+                        if ($scanResultData['is_malicious'] && config('services.pandora.block_malicious', true)) {
+                            Log::warning('Detected malicious file after upload, removing', [
+                                'submission_id' => $this->submission->id,
+                                'filename' => $originalName,
+                            ]);
+                            
+                            // Remove the file
+                            Storage::disk('private')->delete($newPath);
+                            
+                            // You might want to update the submission value to indicate the file was removed
+                            $submissionValue->update(['value' => '[REMOVED-MALICIOUS]: ' . $originalName]);
+                            
+                            // In a real implementation, you might want to:
+                            // 1. Notify the user via email
+                            // 2. Add a system message to the submission
+                            // 3. Flag the submission for review
+                        }
+                    }
+                }
             }
         }
     }
@@ -605,37 +703,37 @@ class SubmissionForm extends Component
 
         foreach ($this->form->categories as $category) {
             foreach ($category->fields as $field) {
-                $fieldRules = [];
-
-                // Add required rule if field is required
+                $fieldValueRules = [];
+                // Base rules: required or nullable for fieldValues
                 if ($field->required) {
-                    $fieldRules[] = 'required';
+                    $fieldValueRules[] = 'required';
                 } else {
-                    $fieldRules[] = 'nullable';
+                    $fieldValueRules[] = 'nullable';
                 }
 
-                // Add type-specific rules
+                // Type-specific rules for fieldValues and tempFiles
                 switch ($field->type) {
                     case 'text':
                     case 'textarea':
-                        $fieldRules[] = 'string';
+                        $fieldValueRules[] = 'string';
                         if (!empty($field->char_limit)) {
-                            $fieldRules[] = "max:{$field->char_limit}";
+                            $fieldValueRules[] = "max:{$field->char_limit}";
                         }
                         break;
 
                     case 'select':
                     case 'radio':
-                        $fieldRules[] = 'string';
+                        $fieldValueRules[] = 'string';
                         if (!empty($field->options)) {
                               // Split the options and validate against individual options
                             $optionsArray = array_map('trim', explode(',', $field->options));
-                            $fieldRules[] = 'in:' . implode(',', $optionsArray);
+                            $fieldValueRules[] = 'in:' . implode(',', $optionsArray);
                         }
                         break;
 
                     case 'checkbox':
-                        $fieldRules[] = 'array';
+                        $fieldValueRules[] = 'array';
+                        // Validate that each checkbox value is boolean
                         if (!empty($field->options)) {
                             $rules["fieldValues.{$field->id}.*"] = 'boolean';
                         }
@@ -645,11 +743,11 @@ class SubmissionForm extends Component
                         // For file fields, fieldValues might contain paths (existing files) or be empty
                         // Only validate as string/path when it exists
                         if (isset($this->fieldValues[$field->id]) && is_string($this->fieldValues[$field->id])) {
-                            $fieldRules[] = 'string';
+                            $fieldValueRules[] = 'string';
                         } else {
                             // If no existing file, remove required rule as tempFiles will handle new uploads
-                            $fieldRules = array_filter($fieldRules, fn($rule) => $rule !== 'required');
-                            $fieldRules[] = 'nullable';
+                            $fieldValueRules = array_filter($fieldValueRules, fn($rule) => $rule !== 'required');
+                            $fieldValueRules[] = 'nullable';
                         }
                         
                         // Add validation rules for new file uploads
@@ -669,11 +767,11 @@ class SubmissionForm extends Component
 
                 // Add rules for field values (skip files as they're handled above)
                 if ($field->type !== 'file') {
-                    $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    $rules["fieldValues.{$field->id}"] = $fieldValueRules;
                 } else {
                     // For file fields, only validate fieldValues if it contains a path
-                    if (!empty($fieldRules)) {
-                        $rules["fieldValues.{$field->id}"] = $fieldRules;
+                    if (!empty($fieldValueRules)) {
+                        $rules["fieldValues.{$field->id}"] = $fieldValueRules;
                     }
                 }
             }

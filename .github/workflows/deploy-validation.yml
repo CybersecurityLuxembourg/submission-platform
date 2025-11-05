@@ -5,13 +5,19 @@ on:
     branches: [ dev ]
   workflow_dispatch:
 
+env:
+  PANDORA_ENABLED: ${{ secrets.VALIDATION_PANDORA_ENABLED }}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-
+      - name: Show 
+        run: |
+          echo "BASTION_HOST=${{ vars.BASTION_HOST }}"
+          echo "BASTION_SSH_PORT=${{ vars.BASTION_SSH_PORT }}"
       - name: Install dependencies and build
         run: |
           npm ci
@@ -31,6 +37,15 @@ jobs:
       - name: Adding known hosts on source host from target host
         run: ssh -p ${{ secrets.BASTION_SSH_PORT }} ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }} ssh-keyscan -H ${{ secrets.VALIDATION_ENV_HOST }} >> ~/.ssh/known_hosts
 
+
+      - name: Disable StrictHostKeyChecking for CI
+        run: |
+          mkdir -p ~/.ssh
+          cat >> ~/.ssh/config << 'EOF'
+          Host *
+            StrictHostKeyChecking no
+            UserKnownHostsFile=/dev/null
+          EOF
 
       - name: Sync Files to Server
         run: |
@@ -103,6 +118,11 @@ jobs:
           MAIL_FROM_NAME="NC3's Application Platform"
 
           VITE_APP_NAME="NC3's Application Platform"
+          API_DOCS_ALLOWED_DOMAINS=lhc.lu,circl.lu,nc3.lu
+          PANDORA_ENABLED=true
+          PANDORA_URL=http://pandora:6100
+          PANDORA_TIMEOUT=15
+          PANDORA_BLOCK_MALICIOUS=true
           EOL
           chmod 644 .env
 
@@ -124,3 +144,10 @@ jobs:
           chmod +x scripts/deploy.sh
           ./scripts/deploy.sh
           ENDSSH
+
+      - name: Optional Pandora installation
+        if: env.PANDORA_ENABLED == 'true'
+        run: |
+            ssh -J ${{ secrets.BASTION_USER }}@${{ secrets.BASTION_HOST }}:${{ secrets.BASTION_SSH_PORT }} \
+                ${{ secrets.SERVER_USERNAME }}@${{ secrets.VALIDATION_ENV_HOST }} \
+                "bash /var/www/test.applications.nc3.lu/scripts/setup-pandora.sh $PANDORA_ENABLED '${{ secrets.PROXY }}'"       

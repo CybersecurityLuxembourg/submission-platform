@@ -60,9 +60,9 @@
                             <span class="ml-1">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span>
                         @endif
                     </th>
-                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer" wire:click="sortBy('last_activity')">
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer" wire:click="sortBy('updated_at')">
                         Last Activity
-                        @if ($sortField === 'last_activity')
+                        @if ($sortField === 'updated_at')
                             <span class="ml-1">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span>
                         @endif
                     </th>
@@ -92,7 +92,7 @@
                                 </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {{ $submission->last_activity ? $submission->last_activity->diffForHumans() : $submission->updated_at->diffForHumans() }}
+                            {{ $submission->updated_at->diffForHumans() }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             @if(!in_array($submission->status, ['draft', 'ongoing']))

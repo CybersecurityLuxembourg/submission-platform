@@ -227,7 +227,7 @@ class SubmissionExportController extends Controller
                 'id' => $form->id,
                 'title' => $form->title,
                 'description' => $form->description,
-                'exported_at' => now()->toISOString(),
+                'exported_at' => now()->toIso8601String(),
             ]));
             fwrite($output, ',"submissions":[');
 
@@ -355,9 +355,10 @@ class SubmissionExportController extends Controller
                 'name' => $submission->user->name,
                 'email' => $submission->user->email,
             ] : null,
-            'submitted_at' => $submission->created_at->toISOString(),
-            'last_updated' => $submission->updated_at->toISOString(),
-            'last_activity' => $submission->last_activity?->toISOString(),
+            'submitted_at' => $submission->created_at?->toIso8601String(),
+            'last_updated' => $submission->updated_at?->toIso8601String(),
+            // For backward compatibility, expose last_activity derived from updated_at
+            'last_activity' => $submission->updated_at?->toIso8601String(),
             'status_metadata' => $submission->status_metadata,
             'categories' => $categories,
         ];
