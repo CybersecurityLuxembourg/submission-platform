@@ -33,9 +33,8 @@ class ApiSecuritySettings extends Page implements HasForms
     
     public static function canAccess(): bool
     {
-        // Only allow access to users who can manage API settings
-        // You can customize this based on your authorization logic
-        return auth()->user()?->hasRole('admin') ?? false;
+        // Only allow access to admin users
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public function mount(): void
