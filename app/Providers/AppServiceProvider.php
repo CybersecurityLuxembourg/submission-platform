@@ -31,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->registerGates();
         $this->registerRateLimiters();
+        $this->loadDatabaseConfigs();
     }
 
     /**
@@ -60,12 +61,17 @@ class AppServiceProvider extends ServiceProvider
             return true;
         }
         
-        // Get allowed domains from database settings, fallback to env
-        $allowedDomainsStr = ApiSetting::get('api_docs_allowed_domains', env('API_DOCS_ALLOWED_DOMAINS', 'lhc.lu,circl.lu,nc3.lu'));
-        $allowedDomains = array_map('trim', explode(',', $allowedDomainsStr));
+        // Get allowed domains from database settings
+        $allowedDomainsStr = ApiSetting::get('api_docs_allowed_domains', env('API_DOCS_ALLOWED_DOMAINS', ''));
+        
+        if (empty($allowedDomainsStr)) {
+            return false;
+        }
+        
+        $allowedDomains = array_filter(array_map('trim', explode(',', $allowedDomainsStr)));
         $emailDomain = substr(strrchr($email, "@"), 1);
         
-        return in_array($emailDomain, $allowedDomains);
+        return !empty($emailDomain) && in_array($emailDomain, $allowedDomains);
     }
 
     /**
@@ -91,11 +97,11 @@ class AppServiceProvider extends ServiceProvider
             $apiToken = $request->attributes->get('api_token');
             
             if ($apiToken) {
-                $limit = (int) ApiSetting::get('rate_limit_api_authenticated', 120);
+                $limit = max(1, (int) ApiSetting::get('rate_limit_api_authenticated'));
                 return Limit::perMinute($limit)->by('token:' . $apiToken->id);
             }
             
-            $limit = (int) ApiSetting::get('rate_limit_api_unauthenticated', 20);
+            $limit = max(1, (int) ApiSetting::get('rate_limit_api_unauthenticated'));
             return Limit::perMinute($limit)->by('ip:' . $request->ip());
         });
     }
@@ -108,7 +114,7 @@ class AppServiceProvider extends ServiceProvider
     private function registerApiAuthRateLimiter(): void
     {
         RateLimiter::for('api-auth', function (Request $request) {
-            $limit = (int) ApiSetting::get('rate_limit_auth_attempts', 5);
+            $limit = max(1, (int) ApiSetting::get('rate_limit_auth_attempts'));
             return Limit::perMinute($limit)->by('ip:' . $request->ip());
         });
     }
@@ -125,17 +131,47 @@ class AppServiceProvider extends ServiceProvider
             $identifier = $apiToken?->id ?? $request->ip();
             
             if ($request->isMethod('GET')) {
-                $limit = (int) ApiSetting::get('rate_limit_submissions_read', 200);
+                $limit = max(1, (int) ApiSetting::get('rate_limit_submissions_read'));
                 return Limit::perMinute($limit)->by('token:' . $identifier);
             }
             
-            $writeLimit = (int) ApiSetting::get('rate_limit_submissions_write', 60);
-            $dailyLimit = (int) ApiSetting::get('rate_limit_submissions_daily', 1000);
+            $writeLimit = max(1, (int) ApiSetting::get('rate_limit_submissions_write'));
+            $dailyLimit = max(1, (int) ApiSetting::get('rate_limit_submissions_daily'));
             
             return [
                 Limit::perMinute($writeLimit)->by('token:' . $identifier),
                 Limit::perDay($dailyLimit)->by('daily:token:' . $identifier),
             ];
         });
+    }
+
+    /**
+     * Load configuration values from database settings.
+     *
+     * @return void
+     */
+    private function loadDatabaseConfigs(): void
+    {
+        try {
+            // Update CORS allowed origins from database
+            $corsOrigins = ApiSetting::get('cors_allowed_origins', env('CORS_ALLOWED_ORIGINS', ''));
+            
+            if (!empty($corsOrigins)) {
+                $corsArray = array_filter(array_map('trim', explode(',', $corsOrigins)));
+                if (!empty($corsArray)) {
+                    config(['cors.allowed_origins' => $corsArray]);
+                }
+            }
+
+            // Update Sanctum token prefix from database
+            $tokenPrefix = ApiSetting::get('sanctum_token_prefix', env('SANCTUM_TOKEN_PREFIX', ''));
+            config(['sanctum.token_prefix' => $tokenPrefix ?? '']);
+        } catch (\Throwable $e) {
+            // Silently fail if database is not available (e.g., during migrations)
+            // Log the error for debugging purposes
+            if (app()->environment('local')) {
+                logger()->debug('Failed to load database configs: ' . $e->getMessage());
+            }
+        }
     }
 }

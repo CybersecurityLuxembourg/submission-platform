@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\ApiLog;
+use App\Models\ApiSetting;
 use App\Models\ApiToken;
 use Closure;
 use Illuminate\Http\Request;
@@ -110,6 +111,19 @@ class ApiLogMiddleware
      */
     private function shouldLogRequest(Request $request): bool
     {
+        try {
+            // Check if logging is enabled in settings
+            $loggingEnabled = (bool) ApiSetting::get('api_logging_enabled');
+            
+            if (!$loggingEnabled) {
+                return false;
+            }
+        } catch (\Exception $e) {
+            // Default to enabled if database unavailable
+            // Log error for debugging
+            Log::warning('Failed to check API logging setting', ['error' => $e->getMessage()]);
+        }
+        
         // Only log API requests
         return str_starts_with($request->path(), 'api/');
     }
