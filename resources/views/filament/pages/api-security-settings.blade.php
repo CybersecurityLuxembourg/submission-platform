@@ -2,11 +2,10 @@
     <form wire:submit="save">
         {{ $this->form }}
         
-        <x-filament-panels::form.actions
-            :actions="$this->getCachedFormActions()"
-            :full-width="$this->hasFullWidthFormActions()"
-        />
+        <div class="mt-6 flex justify-start gap-3">
+            <x-filament::button type="submit" wire:loading.attr="disabled">
+                Save Settings
+            </x-filament::button>
+        </div>
     </form>
-    
-    <x-filament-actions::modals />
 </x-filament-panels::page>

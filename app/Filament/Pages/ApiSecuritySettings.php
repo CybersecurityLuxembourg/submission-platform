@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Models\ApiSetting;
-use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -176,19 +175,5 @@ class ApiSecuritySettings extends Page implements HasForms
             ->title('Settings saved successfully')
             ->success()
             ->send();
-    }
-
-    protected function getFormActions(): array
-    {
-        return [
-            Action::make('save')
-                ->label('Save Settings')
-                ->action('save'),
-        ];
-    }
-    
-    protected function hasFullWidthFormActions(): bool
-    {
-        return false;
     }
 }
