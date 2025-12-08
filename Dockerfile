@@ -31,8 +31,8 @@ RUN npm install --prefer-offline --no-audit --no-progress
 # Build assets with explicit env
 RUN NODE_ENV=production npm run build
 
-# Stage 2: Install PHP dependencies with Composer
-FROM composer:2 AS composer-builder
+# Stage 2: Install PHP dependencies with Composer (PHP 8.3)
+FROM php:8.3-cli-alpine AS composer-builder
 ARG PROXY
 ENV http_proxy=$PROXY \
     HTTP_PROXY=$PROXY \
@@ -41,11 +41,15 @@ ENV http_proxy=$PROXY \
 
 WORKDIR /app
 
-# Install required PHP extensions
+# Install system deps, intl extension and Composer itself
 RUN apk add --no-cache \
         icu-dev \
+        git \
+        curl \
+        unzip \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install intl
+    && docker-php-ext-install intl \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Copy composer files first
 COPY composer.json composer.lock ./
