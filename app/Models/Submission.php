@@ -49,4 +49,28 @@ class Submission extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * Get all scan results for files in this submission.
+     */
+    public function scanResults(): HasMany
+    {
+        return $this->hasMany(ScanResult::class);
+    }
+
+    /**
+     * Check if any files in this submission are flagged as malicious.
+     */
+    public function hasMaliciousFiles(): bool
+    {
+        return $this->scanResults()->where('is_malicious', true)->exists();
+    }
+
+    /**
+     * Get the count of scanned files for this submission.
+     */
+    public function getScannedFilesCount(): int
+    {
+        return $this->scanResults()->count();
+    }
 }

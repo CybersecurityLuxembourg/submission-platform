@@ -92,7 +92,7 @@ class SubmissionIndex extends Component
     public function render(): Factory|View|Application
     {
 
-        $query = $this->form->submissions()->with(['user', 'form']);
+        $query = $this->form->submissions()->with(['user', 'form', 'scanResults']);
 
         if ($this->statusFilter !== 'all') {
             $query->where('status', $this->statusFilter);
