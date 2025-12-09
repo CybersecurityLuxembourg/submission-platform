@@ -13,8 +13,8 @@ services:
     image: clamav/clamav
     volumes:
       - clamav-socket:/var/run/clamav
-      - ./docker/pandora/config/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
-      - ./docker/pandora/config/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
+      - ./config/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+      - ./config/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
     networks: [app_network]
     environment:
     - HTTP_PROXY=${PROXY}
@@ -52,16 +52,16 @@ services:
           poetry run start
           tail -F ./LICENSE
     env_file:
-      - ./docker/pandora/pandora.env
+      - ./pandora.env
     volumes:
       # Persistent runtime data
       - pandora_cache:/pandora/cache
       - pandora_storage:/pandora/storage
       - clamav-socket:/var/run/clamav
       
-      - ./docker/pandora/config/generic.json:/pandora/config/generic.json:ro
-      - ./docker/pandora/workers:/pandora/pandora/workers:ro
-      - ./docker/pandora/yara_rules:/pandora/yara_rules:ro
+      - ./config/generic.json:/pandora/config/generic.json:ro
+      - ./workers:/pandora/pandora/workers:ro
+      - ./yara_rules:/pandora/yara_rules:ro
     networks: [app_network]
     restart: unless-stopped
 
