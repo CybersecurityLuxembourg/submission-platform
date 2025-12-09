@@ -41,14 +41,15 @@ ENV http_proxy=$PROXY \
 
 WORKDIR /app
 
-# Install system deps, intl extension and Composer itself
+# Install system deps, intl/zip extensions and Composer itself
 RUN apk add --no-cache \
         icu-dev \
+        libzip-dev \
         git \
         curl \
         unzip \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install intl \
+    && docker-php-ext-install intl zip \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Copy composer files first
@@ -80,6 +81,7 @@ RUN apk update && apk add --no-cache \
     libpng-dev \
     oniguruma-dev \
     libxml2-dev \
+    libzip-dev \
     zip \
     unzip \
     bash \
@@ -87,7 +89,7 @@ RUN apk update && apk add --no-cache \
     mysql-client
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd && \
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip && \
     docker-php-ext-configure intl && \
     docker-php-ext-install intl
 
