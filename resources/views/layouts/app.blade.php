@@ -107,9 +107,18 @@
                         <a href="{{ route('policy.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left">
                             Privacy Policy
                         </a>
+                        <button 
+                            onclick="localStorage.removeItem('cookie_consent_acknowledged'); location.reload();" 
+                            class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left"
+                        >
+                            Cookie Settings
+                        </button>
                     </div>
                 </div>
             </div>
         </footer>
+
+        {{-- Cookie Consent Banner --}}
+        <x-cookie-consent />
     </body>
 </html>
