@@ -103,7 +103,10 @@
     </div>
 
     <!-- Form Structure - Categories with Drag & Drop -->
-    <div class="space-y-4" wire:sortable="updateCategoryOrder" wire:sortable.options="{ animation: 150, handle: '.category-drag-handle' }">
+    <div class="space-y-4" 
+         wire:sortable="updateCategoryOrder" 
+         wire:sortable.options="{ animation: 150, handle: '.category-drag-handle' }"
+         wire:sortable-group="updateFieldOrder">
         @forelse($filteredCategories as $index => $category)
             <div wire:sortable.item="{{ $category['id'] }}" wire:key="category-{{ $category['id'] }}"
                  class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -175,8 +178,7 @@
                 <!-- Category Fields -->
                 @if(!in_array($category['id'], $collapsedCategories))
                     <div class="p-4 space-y-2" 
-                         wire:sortable-group.item-group="{{ $category['id'] }}"
-                         wire:sortable-group="updateFieldOrder">
+                         wire:sortable-group.item-group="{{ $category['id'] }}">
                         
                         @forelse($category['fields'] as $fieldIndex => $field)
                             <div wire:sortable-group.item="{{ $field['id'] }}" wire:key="field-{{ $field['id'] }}"
@@ -300,7 +302,8 @@
                                 </button>
                                 
                                 <!-- Quick Add Menu -->
-                                <div x-show="showMenu" 
+                                <div x-show="showMenu"
+                                     x-cloak
                                      @click.away="showMenu = false"
                                      x-transition:enter="transition ease-out duration-100"
                                      x-transition:enter-start="transform opacity-0 scale-95"
@@ -380,8 +383,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.set('confirmingCategoryDeletion', false)">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('confirmingCategoryDeletion', false)"></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="$set('confirmingCategoryDeletion', false)"></div>
+                <div class="relative z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                             <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,8 +411,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.set('confirmingFieldDeletion', false)">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('confirmingFieldDeletion', false)"></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="$set('confirmingFieldDeletion', false)"></div>
+                <div class="relative z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
                             <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -436,8 +439,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.set('editingCategory', false)">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('editingCategory', false)"></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="$set('editingCategory', false)"></div>
+                <div class="relative z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full">
                     <form wire:submit.prevent="updateCategory">
                         <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                             <div class="flex items-center gap-3">
@@ -478,8 +481,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.set('editingField', false)">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('editingField', false)"></div>
-                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="$set('editingField', false)"></div>
+                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex z-50">
                     <div class="w-screen max-w-md">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
                             <!-- Header -->
@@ -601,8 +604,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.closeAddCategoryPanel()">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="closeAddCategoryPanel"></div>
-                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="closeAddCategoryPanel"></div>
+                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex z-50">
                     <div class="w-screen max-w-md">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
                             <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
@@ -669,8 +672,8 @@
              x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
              @keydown.escape.window="$wire.closeAddFieldPanel()">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="closeAddFieldPanel"></div>
-                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity z-40" wire:click="closeAddFieldPanel"></div>
+                <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex z-50">
                     <div class="w-screen max-w-lg">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
                             <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
