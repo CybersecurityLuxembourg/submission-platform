@@ -39,6 +39,73 @@ class FormFieldManager extends Component
     public $editingField = false;
     public $categoryBeingEdited;
     public $fieldBeingEdited;
+    
+    // Enhanced UX properties
+    public $showAddCategoryPanel = false;
+    public $showAddFieldPanel = false;
+    public $addingFieldToCategoryId = null;
+    public $collapsedCategories = [];
+    public $showPreview = false;
+    public $searchQuery = '';
+    public $activeFieldTypeFilter = null;
+    
+    // Field type definitions with icons and descriptions
+    public static $fieldTypes = [
+        'header' => [
+            'label' => 'Header',
+            'icon' => 'heading',
+            'description' => 'Section heading to organize your form',
+            'category' => 'layout'
+        ],
+        'description' => [
+            'label' => 'Description',
+            'icon' => 'align-left',
+            'description' => 'Explanatory text or instructions',
+            'category' => 'layout'
+        ],
+        'text' => [
+            'label' => 'Short Text',
+            'icon' => 'type',
+            'description' => 'Single line text input',
+            'category' => 'input'
+        ],
+        'textarea' => [
+            'label' => 'Long Text',
+            'icon' => 'align-justify',
+            'description' => 'Multi-line text area',
+            'category' => 'input'
+        ],
+        'select' => [
+            'label' => 'Dropdown',
+            'icon' => 'chevron-down-square',
+            'description' => 'Select one option from a list',
+            'category' => 'choice'
+        ],
+        'checkbox' => [
+            'label' => 'Checkboxes',
+            'icon' => 'check-square',
+            'description' => 'Select multiple options',
+            'category' => 'choice'
+        ],
+        'radio' => [
+            'label' => 'Radio Buttons',
+            'icon' => 'circle-dot',
+            'description' => 'Select one option with radio buttons',
+            'category' => 'choice'
+        ],
+        'file' => [
+            'label' => 'File Upload',
+            'icon' => 'upload',
+            'description' => 'Allow file attachments',
+            'category' => 'input'
+        ],
+    ];
+
+    protected $listeners = [
+        'updateCategoryOrder',
+        'updateFieldOrder',
+        'moveFieldToCategory'
+    ];
 
     protected $rules = [
         'newCategory.name' => 'required|string|max:255',
@@ -371,8 +438,251 @@ class FormFieldManager extends Component
 
 
 
+    // Toggle category collapse state
+    public function toggleCategoryCollapse($categoryId): void
+    {
+        if (in_array($categoryId, $this->collapsedCategories)) {
+            $this->collapsedCategories = array_diff($this->collapsedCategories, [$categoryId]);
+        } else {
+            $this->collapsedCategories[] = $categoryId;
+        }
+    }
+
+    // Expand all categories
+    public function expandAllCategories(): void
+    {
+        $this->collapsedCategories = [];
+    }
+
+    // Collapse all categories
+    public function collapseAllCategories(): void
+    {
+        $this->collapsedCategories = array_column($this->categories, 'id');
+    }
+
+    // Open add field panel for specific category
+    public function openAddFieldPanel($categoryId = null): void
+    {
+        $this->showAddFieldPanel = true;
+        $this->addingFieldToCategoryId = $categoryId;
+        if ($categoryId) {
+            $this->newField['category_id'] = $categoryId;
+        }
+        $this->showAddCategoryPanel = false;
+    }
+
+    // Close add field panel
+    public function closeAddFieldPanel(): void
+    {
+        $this->showAddFieldPanel = false;
+        $this->addingFieldToCategoryId = null;
+        $this->reset('newField');
+    }
+
+    // Open add category panel
+    public function openAddCategoryPanel(): void
+    {
+        $this->showAddCategoryPanel = true;
+        $this->showAddFieldPanel = false;
+    }
+
+    // Close add category panel
+    public function closeAddCategoryPanel(): void
+    {
+        $this->showAddCategoryPanel = false;
+        $this->reset('newCategory');
+    }
+
+    // Duplicate a field
+    public function duplicateField($fieldId): void
+    {
+        $originalField = FormField::findOrFail($fieldId);
+        
+        $newField = $originalField->replicate();
+        $newField->label = $originalField->label ? $originalField->label . ' (Copy)' : null;
+        $newField->content = $originalField->content ? $originalField->content . ' (Copy)' : null;
+        $newField->order = $originalField->order + 1;
+        $newField->save();
+
+        // Reorder other fields
+        FormField::where('form_category_id', $originalField->form_category_id)
+            ->where('id', '!=', $newField->id)
+            ->where('order', '>=', $newField->order)
+            ->increment('order');
+
+        $this->loadCategories();
+        $this->dispatch('notify', ['message' => 'Field duplicated successfully', 'type' => 'success']);
+    }
+
+    // Duplicate a category with all its fields
+    public function duplicateCategory($categoryId): void
+    {
+        $originalCategory = FormCategory::with('fields')->findOrFail($categoryId);
+        
+        $newCategory = $originalCategory->replicate();
+        $newCategory->name = $originalCategory->name . ' (Copy)';
+        $newCategory->order = $originalCategory->order + 1;
+        $newCategory->save();
+
+        // Duplicate all fields in the category
+        foreach ($originalCategory->fields as $field) {
+            $newField = $field->replicate();
+            $newField->form_category_id = $newCategory->id;
+            $newField->save();
+        }
+
+        // Reorder other categories
+        FormCategory::where('form_id', $this->form->id)
+            ->where('id', '!=', $newCategory->id)
+            ->where('order', '>=', $newCategory->order)
+            ->increment('order');
+
+        $this->loadCategories();
+        $this->dispatch('notify', ['message' => 'Category duplicated successfully', 'type' => 'success']);
+    }
+
+    // Handle drag-drop reordering of categories
+    public function updateCategoryOrder($orderedIds): void
+    {
+        foreach ($orderedIds as $index => $id) {
+            FormCategory::where('id', $id)->update(['order' => $index + 1]);
+        }
+        $this->loadCategories();
+    }
+
+    // Handle drag-drop reordering of fields within a category
+    public function updateFieldOrder($categoryId, $orderedIds): void
+    {
+        foreach ($orderedIds as $index => $id) {
+            FormField::where('id', $id)->update([
+                'order' => $index + 1,
+                'form_category_id' => $categoryId
+            ]);
+        }
+        $this->loadCategories();
+    }
+
+    // Move field to a different category
+    public function moveFieldToCategory($fieldId, $newCategoryId): void
+    {
+        $field = FormField::findOrFail($fieldId);
+        $newCategory = FormCategory::findOrFail($newCategoryId);
+        
+        $field->form_category_id = $newCategoryId;
+        $field->order = $newCategory->fields()->max('order') + 1;
+        $field->save();
+        
+        $this->loadCategories();
+        $this->dispatch('notify', ['message' => 'Field moved successfully', 'type' => 'success']);
+    }
+
+    // Quick add field with preset type
+    public function quickAddField($type, $categoryId): void
+    {
+        $category = FormCategory::findOrFail($categoryId);
+        
+        $fieldData = [
+            'form_id' => $this->form->id,
+            'form_category_id' => $categoryId,
+            'type' => $type,
+            'order' => $category->fields()->max('order') + 1,
+        ];
+
+        if (in_array($type, ['header', 'description'])) {
+            $fieldData['content'] = $type === 'header' ? 'New Section' : 'Enter description here...';
+            $fieldData['label'] = null;
+            $fieldData['required'] = false;
+        } else {
+            $fieldData['label'] = 'New ' . ucfirst(self::$fieldTypes[$type]['label'] ?? $type) . ' Field';
+            $fieldData['required'] = false;
+            if (in_array($type, ['select', 'checkbox', 'radio'])) {
+                $fieldData['options'] = 'Option 1,Option 2,Option 3';
+            }
+        }
+
+        $newField = FormField::create($fieldData);
+        $this->loadCategories();
+        
+        // Open edit modal for the new field
+        $this->editField($newField->id);
+    }
+
+    // Get field statistics
+    public function getFieldStats(): array
+    {
+        $totalFields = 0;
+        $requiredFields = 0;
+        $fieldsByType = [];
+
+        foreach ($this->categories as $category) {
+            foreach ($category['fields'] as $field) {
+                $totalFields++;
+                if (!empty($field['required'])) {
+                    $requiredFields++;
+                }
+                $type = $field['type'];
+                $fieldsByType[$type] = ($fieldsByType[$type] ?? 0) + 1;
+            }
+        }
+
+        return [
+            'total' => $totalFields,
+            'required' => $requiredFields,
+            'byType' => $fieldsByType,
+            'categories' => count($this->categories)
+        ];
+    }
+
+    // Get filtered categories based on search
+    public function getFilteredCategoriesProperty(): array
+    {
+        if (empty($this->searchQuery) && empty($this->activeFieldTypeFilter)) {
+            return $this->categories;
+        }
+
+        $filtered = [];
+        foreach ($this->categories as $category) {
+            $matchingFields = array_filter($category['fields'], function ($field) {
+                $matchesSearch = empty($this->searchQuery) || 
+                    stripos($field['label'] ?? '', $this->searchQuery) !== false ||
+                    stripos($field['content'] ?? '', $this->searchQuery) !== false;
+                
+                $matchesType = empty($this->activeFieldTypeFilter) || 
+                    $field['type'] === $this->activeFieldTypeFilter;
+                
+                return $matchesSearch && $matchesType;
+            });
+
+            if (!empty($matchingFields) || 
+                stripos($category['name'], $this->searchQuery) !== false) {
+                $filteredCategory = $category;
+                $filteredCategory['fields'] = array_values($matchingFields);
+                $filtered[] = $filteredCategory;
+            }
+        }
+
+        return $filtered;
+    }
+
+    // Clear all filters
+    public function clearFilters(): void
+    {
+        $this->searchQuery = '';
+        $this->activeFieldTypeFilter = null;
+    }
+
+    // Get field types for the view
+    public static function getFieldTypes(): array
+    {
+        return self::$fieldTypes;
+    }
+
     public function render(): View|Factory|Application
     {
-        return view('livewire.form-field-manager');
+        return view('livewire.form-field-manager', [
+            'fieldTypes' => self::$fieldTypes,
+            'fieldStats' => $this->getFieldStats(),
+            'filteredCategories' => $this->filteredCategories,
+        ]);
     }
 }
