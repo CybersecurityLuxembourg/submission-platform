@@ -308,7 +308,7 @@
                                      x-transition:leave="transition ease-in duration-75"
                                      x-transition:leave-start="transform opacity-100 scale-100"
                                      x-transition:leave-end="transform opacity-0 scale-95"
-                                     class="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 z-10">
+                                     class="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-3 z-20">
                                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Field Types</p>
                                     <div class="grid grid-cols-4 gap-2">
                                         @foreach($fieldTypes as $type => $config)
@@ -376,9 +376,11 @@
     </div>
     <!-- Delete Section Confirmation Modal -->
     @if($confirmingCategoryDeletion)
-        <div class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="$set('confirmingCategoryDeletion', false)"></div>
+        <div class="fixed inset-0 z-50 overflow-y-auto"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.set('confirmingCategoryDeletion', false)">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('confirmingCategoryDeletion', false)"></div>
                 <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
@@ -402,9 +404,11 @@
 
     <!-- Delete Field Confirmation Modal -->
     @if($confirmingFieldDeletion)
-        <div class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="$set('confirmingFieldDeletion', false)"></div>
+        <div class="fixed inset-0 z-50 overflow-y-auto"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.set('confirmingFieldDeletion', false)">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('confirmingFieldDeletion', false)"></div>
                 <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
@@ -428,9 +432,11 @@
 
     <!-- Edit Section Modal -->
     @if($editingCategory)
-        <div class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="$set('editingCategory', false)"></div>
+        <div class="fixed inset-0 z-50 overflow-y-auto"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.set('editingCategory', false)">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('editingCategory', false)"></div>
                 <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full">
                     <form wire:submit.prevent="updateCategory">
                         <div class="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
@@ -468,9 +474,11 @@
     @endif
     <!-- Edit Field Slide-out Panel -->
     @if($editingField)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-0 z-50 overflow-hidden"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.set('editingField', false)">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="$set('editingField', false)"></div>
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="$set('editingField', false)"></div>
                 <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
                     <div class="w-screen max-w-md">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
@@ -589,9 +597,11 @@
 
     <!-- Add Section Slide-out Panel -->
     @if($showAddCategoryPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-0 z-50 overflow-hidden"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.closeAddCategoryPanel()">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="closeAddCategoryPanel"></div>
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="closeAddCategoryPanel"></div>
                 <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
                     <div class="w-screen max-w-md">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
@@ -655,9 +665,11 @@
 
     <!-- Add Field Slide-out Panel -->
     @if($showAddFieldPanel)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-0 z-50 overflow-hidden"
+             x-data="{ init() { document.body.style.overflow = 'hidden' }, destroy() { document.body.style.overflow = '' } }"
+             @keydown.escape.window="$wire.closeAddFieldPanel()">
             <div class="absolute inset-0 overflow-hidden">
-                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="closeAddFieldPanel"></div>
+                <div class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity" wire:click="closeAddFieldPanel"></div>
                 <div class="fixed inset-y-0 right-0 pl-10 max-w-full flex">
                     <div class="w-screen max-w-lg">
                         <div class="h-full flex flex-col bg-white dark:bg-gray-800 shadow-2xl">
