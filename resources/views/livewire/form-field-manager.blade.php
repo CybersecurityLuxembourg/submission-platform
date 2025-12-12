@@ -105,8 +105,7 @@
     <!-- Form Structure - Categories with Drag & Drop -->
     <div class="space-y-4" 
          wire:sortable="updateCategoryOrder" 
-         wire:sortable.options="{ animation: 150, handle: '.category-drag-handle' }"
-         wire:sortable-group="updateFieldOrder">
+         wire:sortable.options="{ animation: 150, handle: '.category-drag-handle' }">
         @forelse($filteredCategories as $index => $category)
             <div wire:sortable.item="{{ $category['id'] }}" wire:key="category-{{ $category['id'] }}"
                  class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -178,7 +177,9 @@
                 <!-- Category Fields -->
                 @if(!in_array($category['id'], $collapsedCategories))
                     <div class="p-4 space-y-2" 
-                         wire:sortable-group.item-group="{{ $category['id'] }}">
+                         wire:sortable-group="updateFieldOrder"
+                         wire:sortable-group.item-group="{{ $category['id'] }}"
+                         wire:sortable-group.options="{ animation: 150, group: 'fields' }">
                         
                         @forelse($category['fields'] as $fieldIndex => $field)
                             <div wire:sortable-group.item="{{ $field['id'] }}" wire:key="field-{{ $field['id'] }}"

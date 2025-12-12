@@ -77,42 +77,117 @@
         @livewireScripts
 
         <!-- Footer -->
-        <footer class="bg-white dark:bg-gray-800 shadow-inner mt-auto py-6 border-t border-gray-200 dark:border-gray-700">
+        <footer class="relative bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 mt-auto border-t border-gray-200 dark:border-gray-800">
+            <!-- Decorative top border -->
+            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600"></div>
+            
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
-                    <!-- Left section: Copyright and EU Logo -->
-                    <div class="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6 text-center sm:text-left">
-                        <div class="text-sm text-gray-600 dark:text-gray-400">
-                            &copy; {{ date('Y') }} Luxembourg House of Cybersecurity. All rights reserved.
+                <!-- Main Footer Content -->
+                <div class="py-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+                    <!-- Brand Section -->
+                    <div class="lg:col-span-2">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl">
+                                <svg class="w-8 h-8 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-white">NC3 Luxembourg</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">National Cybersecurity Competence Center</p>
+                            </div>
                         </div>
-                        <div class="flex flex-col items-center justify-center space-y-1">
+                        <p class="text-gray-600 dark:text-gray-400 text-sm leading-relaxed max-w-md mb-6">
+                            Luxembourg House of Cybersecurity is committed to strengthening cybersecurity capabilities across Luxembourg through the NC3 initiative.
+                        </p>
+                        
+                        <!-- EU Funding Badge -->
+                        <div class="inline-flex items-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                             <img 
                                 src="{{ asset('img/co-funded-eu-logo.png') }}" 
                                 alt="Co-funded by the European Union" 
-                                class="h-12 w-auto opacity-95 hover:opacity-100 transition-all duration-200 eu-logo"
+                                class="h-14 w-auto eu-logo"
                                 loading="lazy"
                                 title="This project is co-funded by the European Union's Digital Europe Programme"
                             />
-                            <div class="text-xs text-gray-500 dark:text-gray-500 text-center max-w-xs">
-                                This project is co-funded by the European Union's Digital Europe Programme under Grant Agreement No. 1011227115.
+                            <div class="ml-4 text-xs text-gray-500 dark:text-gray-400 max-w-[200px] leading-relaxed">
+                                Co-funded by the EU Digital Europe Programme<br/>
+                                <span class="text-gray-400 dark:text-gray-500">Grant No. 1011227115</span>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Right section: Links -->
-                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-6 text-sm">
-                        <a href="{{ route('terms.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left">
-                            Terms of Service
-                        </a>
-                        <a href="{{ route('policy.show') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left">
-                            Privacy Policy
-                        </a>
-                        <button 
-                            onclick="localStorage.removeItem('cookie_consent_acknowledged'); location.reload();" 
-                            class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors duration-200 text-center sm:text-left"
-                        >
-                            Cookie Settings
-                        </button>
+                    <!-- Quick Links -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
+                            Quick Links
+                        </h4>
+                        <ul class="space-y-3">
+                            <li>
+                                <a href="{{ url('/') }}" class="group flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 text-sm">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                                    </svg>
+                                    Home
+                                </a>
+                            </li>
+                            @auth
+                            <li>
+                                <a href="{{ route('dashboard') }}" class="group flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 text-sm">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                                    </svg>
+                                    Dashboard
+                                </a>
+                            </li>
+                            @endauth
+                        </ul>
+                    </div>
+                    
+                    <!-- Legal Links -->
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4">
+                            Legal
+                        </h4>
+                        <ul class="space-y-3">
+                            <li>
+                                <a href="{{ route('terms.show') }}" class="group flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 text-sm">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    Terms of Service
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('policy.show') }}" class="group flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 text-sm">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                    </svg>
+                                    Privacy Policy
+                                </a>
+                            </li>
+                            <li>
+                                <button 
+                                    onclick="localStorage.removeItem('cookie_consent_acknowledged'); location.reload();" 
+                                    class="group flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors duration-200 text-sm"
+                                >
+                                    <svg class="w-4 h-4 mr-2 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    </svg>
+                                    Cookie Settings
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Bottom Bar -->
+                <div class="py-6 border-t border-gray-200 dark:border-gray-800">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            &copy; {{ date('Y') }} <span class="font-medium text-gray-700 dark:text-gray-300">Luxembourg House of Cybersecurity</span>. All rights reserved.
+                        </p>
                     </div>
                 </div>
             </div>

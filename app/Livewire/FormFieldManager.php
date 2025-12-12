@@ -553,11 +553,19 @@ class FormFieldManager extends Component
     // Handle drag-drop reordering of fields within a category
     public function updateFieldOrder($items): void
     {
-        foreach ($items as $item) {
-            FormField::where('id', $item['value'])->update([
-                'order' => $item['order'],
-                'form_category_id' => $item['group']
-            ]);
+        foreach ($items as $index => $item) {
+            // Handle both array format and simple ID format
+            $fieldId = is_array($item) ? ($item['value'] ?? $item['id'] ?? $item) : $item;
+            $order = is_array($item) ? ($item['order'] ?? $index + 1) : $index + 1;
+            
+            $updateData = ['order' => $order];
+            
+            // Only update category if 'group' key exists (cross-category drag)
+            if (is_array($item) && isset($item['group'])) {
+                $updateData['form_category_id'] = $item['group'];
+            }
+            
+            FormField::where('id', $fieldId)->update($updateData);
         }
         $this->loadCategories();
     }
