@@ -152,7 +152,7 @@
         <h2 class="text-2xl font-semibold mb-4 text-gray-700 dark:text-gray-300">Form Structure</h2>
         <div class="space-y-4">
             @foreach($categories as $index => $category)
-                <div class="bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div class="bg-gray-100 dark:bg-gray-700 rounded-lg" wire:key="category-{{ $category['id'] }}">
                     <div class="flex items-center justify-between p-4">
                         <h4 class="text-lg font-medium text-gray-700 dark:text-gray-300">{{ $category['name'] }}</h4>
                         <div class="flex space-x-2">
@@ -182,7 +182,7 @@
                     <div class="bg-white dark:bg-gray-600 p-4 rounded-b-lg space-y-2">
                         @foreach($category['fields'] as $fieldIndex => $field)
                             <div
-                                class="flex items-center justify-between py-2 px-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                class="flex items-center justify-between py-2 px-2 bg-gray-50 dark:bg-gray-700 rounded-md" wire:key="field-{{ $field['id'] }}">
                                 <div class="flex items-center">
                                     @if($field['type'] == 'header')
                                         <span
