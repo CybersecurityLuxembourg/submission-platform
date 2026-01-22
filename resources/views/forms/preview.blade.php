@@ -15,12 +15,12 @@
 
 
                         @foreach($form->categories as $index => $category)
-                            <div x-show="step === {{ $index + 1 }}">
+                            <div x-show="step === {{ $index + 1 }}" wire:key="preview-category-{{ $category->id }}">
                                 <h3 class="text-lg font-semibold mb-4">{{ $category->name }}</h3>
                                 <p class="mb-4">{{ $category->description }}</p>
 
                                 @foreach($category->fields as $field)
-                                    <div class="mb-4">
+                                    <div class="mb-4" wire:key="preview-field-{{ $field->id }}">
                                         <label class="block text-gray-700 dark:text-gray-300">{{ $field->label }}{{ $field->required ? '*' : '' }}</label>
 
                                         @if($field->type === 'text')
