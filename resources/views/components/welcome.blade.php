@@ -22,9 +22,9 @@
             </h2>
         </div>
 
-        <p class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
-            {{ $form->description }}
-        </p>
+        <div class="mt-4 text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+            {!! \App\Helpers\MarkdownHelper::toHtml($form->description) !!}
+        </div>
 
         <p class="mt-4 text-sm">
             <a href="{{ route('submissions.create', $form) }}" class="inline-flex items-center font-semibold text-indigo-700 dark:text-indigo-300">
