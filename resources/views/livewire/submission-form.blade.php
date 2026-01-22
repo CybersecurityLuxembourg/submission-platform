@@ -95,9 +95,9 @@
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 transform translate-y-4"
              x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="space-y-6">
+             class="space-y-6" wire:key="submission-category-{{ $category->id }}">
             @foreach($category->fields as $field)
-                <div class="space-y-2">
+                <div class="space-y-2" wire:key="submission-field-{{ $field->id }}">
                     @if($field->type === 'header')
                         <h4 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                             {{ $field->content }}
