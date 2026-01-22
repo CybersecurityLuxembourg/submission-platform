@@ -32,7 +32,7 @@ RUN npm install --prefer-offline --no-audit --no-progress
 RUN NODE_ENV=production npm run build
 
 # Stage 2: Install PHP dependencies with Composer
-FROM composer:2 AS composer-builder
+FROM composer:2-php8.3 AS composer-builder
 ARG PROXY
 ENV http_proxy=$PROXY \
     HTTP_PROXY=$PROXY \
